@@ -1,0 +1,9 @@
+n_classes,solver,name,images,accuracy,iou,dice,runtime_s_median,energy
+2,annealing,Annealing,10,0.998,0.9469,0.9715,0.4816,668.3401
+2,classiq,QAOA (Classiq),4,0.9975,0.9281,0.9601,164.0301,639.0154
+2,graphcut,Graph cut,10,0.9979,0.9458,0.9709,0.011,668.3366
+2,icm,ICM,10,0.9616,0.5616,0.6313,0.0131,897.2441
+2,kmeans,k-means,10,0.7543,0.5067,0.5636,0.0017,1881.1787
+2,otsu,Otsu,10,0.7504,0.5023,0.5605,0.0003,1890.0747
+2,qaoa_local,QAOA (local sim),10,0.9975,0.9355,0.9655,0.4796,669.163
+2,sa_tiled,Tiled SA,10,0.9977,0.9394,0.9675,2.1719,669.0659
