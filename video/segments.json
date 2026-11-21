@@ -3,8 +3,8 @@
   "rate": "+0%",
   "title": "QuantumSAR",
   "subtitle": "Quantum optimisation for radar image segmentation",
-  "repo_url": "github.com/<your-user>/quantumsar",
-  "demo_url": "huggingface.co/spaces/<your-user>/quantumsar",
+  "repo_url": "github.com/jerrickg456/quantumsar",
+  "demo_url": "quantumsar.onrender.com",
   "segments": [
     {
       "id": "hook",

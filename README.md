@@ -1,5 +1,8 @@
 # QuantumSAR
 
+**Live demo: https://quantumsar.onrender.com** (free tier: first visit after idle takes ~1 min to wake up) ·
+[demo video](video/out/final.mp4) · [API docs](https://quantumsar.onrender.com/docs)
+
 **Segmenting Synthetic Aperture Radar images with quantum optimisation.**
 Each pixel's label is a spin; the Markov-random-field energy of the Thales SAR use case becomes an Ising
 Hamiltonian that is solved tile-by-tile with **QAOA on Classiq**, and benchmarked against Otsu, k-means,
