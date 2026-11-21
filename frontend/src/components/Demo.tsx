@@ -118,12 +118,16 @@ export default function Demo({ params, setParams, onResult }:
               <Thumb key={n} name={n} active={!upload && n === name} onClick={() => { setUpload(null); setName(n) }} />
             ))}
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <button className="text-slate-400 hover:text-white" onClick={() => setShowAll(!showAll)}>
-              {showAll ? 'show fewer' : `show all ${samples.length} samples`}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" data-testid="show-all" onClick={() => setShowAll(!showAll)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/35 hover:bg-white/[0.08]">
+              <span className="text-lg leading-none">{showAll ? '▴' : '▦'}</span>
+              {showAll ? 'Show fewer' : `All ${samples.length} samples`}
             </button>
-            <label className="cursor-pointer rounded-md border border-white/15 px-2 py-1 text-slate-300 hover:bg-white/5">
-              Upload…
+            <label data-testid="upload-btn"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-amber-400/60 bg-amber-400/10 px-3 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/20 hover:shadow-[0_0_18px_rgba(255,166,0,0.3)]">
+              <span className="text-lg leading-none">⬆</span>
+              Upload image
               <input type="file" accept=".png,.jpg,.jpeg,.npy" className="hidden" onChange={async (e) => {
                 const f = e.target.files?.[0]
                 if (f) { setUpload({ b64: await fileToB64(f), name: f.name, preview: await previewGrid(f) }); setRes(null) }
