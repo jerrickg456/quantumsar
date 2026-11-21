@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Rebuild the QuantumSAR demo video end-to-end (re-run after any UI change).
 #
-#   ./video/make_video.sh                 # starts the app itself on :8501
-#   APP_URL=http://host:port ./video/make_video.sh   # use an already running app
+#   ./video/make_video.sh                                 # records the deployed app (segments.json app_url)
+#   APP_URL=http://localhost:8000 ./video/make_video.sh   # or any running instance
 #
 # Steps: TTS narration -> paced Playwright recording -> ffmpeg compose -> sync check.
 # Outputs: video/out/final.mp4, video/out/final.srt, video/out/thumbnail.png, video/script.md
@@ -15,8 +15,8 @@ cd "$HERE"
 "$PY" -m playwright install chromium >/dev/null
 
 APP_PID=""
-if [ -z "${APP_URL:-}" ]; then
-  APP_URL="http://localhost:8000"
+APP_URL="${APP_URL:-$("$PY" -c "import json;print(json.load(open('segments.json'))['app_url'])")}"
+if [ "$APP_URL" = "http://localhost:8000" ]; then
   if ! curl -fs "$APP_URL/health" >/dev/null 2>&1; then
     echo "starting QuantumSAR (FastAPI + React UI) on :8000"
     [ -f "$ROOT/frontend/dist/index.html" ] || (cd "$ROOT/frontend" && npm ci && npm run build)
@@ -28,8 +28,9 @@ if [ -z "${APP_URL:-}" ]; then
 fi
 trap '[ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null || true' EXIT
 
-echo "== 1/4 narration (edge-tts)";   "$PY" tts.py
-echo "== 2/4 screen recording";       "$PY" record.py --url "$APP_URL"
-echo "== 3/4 compose (ffmpeg)";       "$PY" compose.py
-echo "== 4/4 sync check";             "$PY" check.py
+echo "== 1/5 explainer slides";       "$PY" slides.py
+echo "== 2/5 narration (edge-tts)";   "$PY" tts.py
+echo "== 3/5 screen recording";       "$PY" record.py --url "$APP_URL"
+echo "== 4/5 compose (ffmpeg)";       "$PY" compose.py
+echo "== 5/5 sync check";             "$PY" check.py
 echo "done: $HERE/out/final.mp4"

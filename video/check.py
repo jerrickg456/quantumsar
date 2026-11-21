@@ -14,7 +14,7 @@ from pathlib import Path
 import imageio_ffmpeg
 from PIL import Image, ImageDraw
 
-from compose import font
+from common import font
 
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build"

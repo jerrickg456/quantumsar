@@ -1,0 +1,11 @@
+Classiq authenticated
+[1/10] sar_000_normal: cached, skip
+[2/10] sar_001_normal: iou=0.921 t=182s
+[3/10] sar_002_low_snr: iou=0.700 t=174s
+[4/10] sar_003_no_target: iou=1.000 t=144s
+[5/10] sar_004_speckled: iou=0.447 t=180s
+[6/10] sar_005_normal: iou=0.993 t=171s
+[7/10] sar_006_normal: iou=0.949 t=181s
+[8/10] sar_007_low_snr: iou=0.446 t=166s
+[9/10] sar_008_no_target: iou=1.000 t=173s
+[10/10] sar_009_speckled: iou=0.490 t=215s

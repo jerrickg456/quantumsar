@@ -40,3 +40,12 @@ Classiq authenticated
 [39/50] sar_038_no_target: iou=1.000 t=138s
 [40/50] sar_039_speckled: iou=0.857 t=153s
 [41/50] sar_040_normal: iou=0.882 t=156s
+[42/50] sar_041_normal: iou=0.964 t=149s
+[43/50] sar_042_low_snr: iou=0.721 t=163s
+[44/50] sar_043_no_target: iou=1.000 t=163s
+[45/50] sar_044_speckled: iou=0.903 t=184s
+[46/50] sar_045_normal: iou=0.970 t=154s
+[47/50] sar_046_normal: iou=0.977 t=127s
+[48/50] sar_047_low_snr: iou=0.891 t=150s
+[49/50] sar_048_no_target: iou=1.000 t=158s
+[50/50] sar_049_speckled: iou=0.898 t=169s

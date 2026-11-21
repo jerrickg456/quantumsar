@@ -1,31 +1,43 @@
 # QuantumSAR — demo video narration
 
-Voice: `en-US-AndrewNeural` (edge-tts), rate +0%. 391 words, 144 s of speech.
+Voice: `en-US-AndrewNeural` (edge-tts), rate +0%. 871 words, 300 s of speech.
 
-## 0:00 Hook  (18.2 s)
+## Intro: the problem  (44.0 s)
 
-Radar satellites can see through clouds and darkness, but their images come with a catch: speckle. Every synthetic aperture radar picture is covered in grainy noise, so even finding a vehicle on the ground is hard. And the classical methods that clean this up get slow, or stuck, as images grow.
+Imagine a satellite taking pictures of the Earth at night, or through thick clouds. Normal cameras cannot do that, but radar can. This kind of radar is called Synthetic Aperture Radar, or SAR. The catch is that SAR images are very noisy. They are covered in a grainy pattern called speckle. Our task, from the Thales challenge, is to find the vehicle in each radar image, and mark every pixel as vehicle, shadow, or background. This is called image segmentation. To do it well, every pixel must be judged together with its neighbours, and that turns into a giant puzzle with more possible answers than atoms in the universe. Classical computers struggle with puzzles like this, so we asked a simple question: can a quantum computer help?
 
-## 0:20 The idea  (25.9 s)
+## Intro: our idea  (44.1 s)
 
-QuantumSAR turns segmentation into an energy puzzle. Each pixel gets a label, target or background, which we write as a tiny magnet, a spin, pointing up or down. Neighbouring spins like to agree, and bright pixels prefer to be target. That is an Ising problem, exactly the kind of optimisation quantum computers are built for. We solve it with QAOA, the Quantum Approximate Optimisation Algorithm, running on Classiq.
+Here is our idea, in simple words. Each pixel becomes a tiny magnet that points up or down. Up means vehicle, down means background. Bright pixels want to point up, and neighbouring magnets like to point the same way, which keeps the picture smooth. The best arrangement of all the magnets is the one with the lowest energy, and it gives us the cleanest picture. Finding that lowest energy is exactly what a quantum algorithm called QAOA is designed for, and we run it on Classiq's quantum platform. One image has four thousand pixels, which is far too many qubits for today's quantum simulators. So we cut the image into small three by three tiles of nine qubits each, solve every tile with QAOA, and stitch the tiles back together.
 
-## 0:45 Live demo  (38.7 s)
+## Walkthrough: the live app  (17.0 s)
 
-Let's try it. I pick a noisy radar sample and choose the quantum solver. A sixty-four by sixty-four image has four thousand pixels, far more than any simulator has qubits, so the app cuts it into tiny three-by-three tiles. Each tile becomes a nine-qubit circuit, and Classiq runs a whole batch of tiles at once. The badge always says where a result came from: this one was computed on Classiq's cloud simulator, then cached. Orange is the target, and it matches the ground truth closely. Now switch on three classes. Every pixel now uses three qubits, and the dark radar shadow behind the vehicle appears in blue.
+Now let's walk through the project. This is our live web app, deployed on the internet at quantumsar dot onrender dot com, so anyone can try it. At the top, you see the main idea: the image energy becomes a quantum Hamiltonian, the kind of equation a quantum computer can work with.
 
-## 1:30 Edge detection  (11.0 s)
+## Walkthrough: run a sample  (35.9 s)
 
-Turn on edge detection, and the app outlines every region, one pixel wide. Red traces the vehicle, cyan traces its shadow, ready for a target-recognition step.
+In the live demo section, I pick one of our fifty sample radar images. I keep the quantum solver, QAOA on Classiq, and press Run segmentation. The answer appears in about a second, because this image was already solved on Classiq, and the result was saved. The blue badge always tells you which engine produced the result, so nothing is hidden. The orange shape is the vehicle we found, and it matches the true answer, shown in the middle, almost perfectly. Below, you can see the scores, and the quantum circuit used for every tile: nine qubits, with the circuit size reported by Classiq.
 
-## 1:50 Benchmark  (21.4 s)
+## Walkthrough: 3 classes and edges  (14.7 s)
 
-So how does it compare? One click benchmarks every solver on the same image. Quantum QAOA lands within a fraction of a percent of the exact optimum found by graph cut, and far ahead of Otsu and k-means thresholding, which speckle fools. To be fair, annealing and graph cut are still faster on a laptop. And everything exports to CSV.
+Now I switch on three classes. The app also finds the dark radar shadow behind the vehicle, shown in blue. And with edge detection switched on, it draws a clean, one pixel wide outline: red for the vehicle, and cyan for the shadow.
 
-## 2:20 Honest limits  (20.3 s)
+## Walkthrough: benchmark  (26.6 s)
 
-Now, the honest limits. Qubit counts keep tiles small, so the quantum part optimises local blocks, not the whole image at once. Live cloud runs take a few minutes per image, which is why this demo serves cached Classiq results. Bigger devices mean bigger tiles, and next we want real MSTAR data and hardware runs.
+To be fair, we compare the quantum method with classical methods. One click runs every solver on the same image. The quantum result reaches the same best energy as graph cut, the exact classical method, and it is far more accurate than simple thresholding like Otsu and k-means. But classical methods are still much faster today, and we show that honestly in the runtime chart. All of these numbers can be exported as a CSV file.
 
-## 2:40 Call to action  (8.3 s)
+## Walkthrough: upload, live Classiq run  (28.6 s)
 
-QuantumSAR is open source, tested, and runs with one Docker command. Grab the code and try the live demo from the links on screen.
+You can also upload your own image. This image has never been solved before, so pressing Run sends it live to Classiq's cloud. A progress bar shows every stage: first a quick pass on a smaller copy of the image, then the full resolution pass. While it runs, the How it works section explains the method in four steps. And here we list our honest limitations: today's qubit limits keep the tiles small, and the quantum part is not yet faster than classical methods.
+
+## Walkthrough: live result  (11.3 s)
+
+The job has finished. The green badge confirms that this result was computed live on Classiq, in about a minute. The result is now saved, so the same image will load instantly next time.
+
+## How we built and deployed it  (62.4 s)
+
+So how did we build and deploy all this? The quantum part uses the Classiq Python SDK. We write the QAOA circuit in Python, Classiq turns it into a real quantum circuit, and runs it on its cloud simulator. We checked it carefully: on small tiles, the quantum answer matches a full brute force search, and we have more than forty automatic tests. The classical comparison methods, graph cut, simulated annealing and thresholding, are also written in Python. The backend is FastAPI, the website is built in React with animated React Bits components, and everything is packed into one Docker container. Our code is public on GitHub. Every change is tested automatically with GitHub Actions, and then deployed to Render, where the app runs online. Classiq normally needs a browser login, so we created a separate, secure login just for the server, stored as a secret, so the live site can run quantum jobs by itself. Long quantum runs are handled as background jobs, one at a time, and every finished result is saved so it loads instantly next time.
+
+## Team  (15.4 s)
+
+QuantumSAR was built by Team From Nowhere: Jerrick Austin Manuel G, Nidhin Suresh, Suresh Ramanujam, Yokeshwaran Anandan, and Hari Babu. You can find our code on GitHub and try the live app using the links on screen. Thank you for watching!

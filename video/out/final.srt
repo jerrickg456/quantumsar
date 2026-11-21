@@ -1,179 +1,359 @@
 1
-00:00:04,650 --> 00:00:09,164
-Radar satellites can see through clouds and darkness, but their images come
+00:00:04,050 --> 00:00:08,131
+Imagine a satellite taking pictures of the Earth at night, or through
 
 2
-00:00:09,164 --> 00:00:10,487
-with a catch: speckle.
+00:00:08,131 --> 00:00:08,900
+thick clouds.
 
 3
-00:00:10,538 --> 00:00:14,992
-Every synthetic aperture radar picture is covered in grainy noise, so even
+00:00:08,950 --> 00:00:13,404
+Normal cameras cannot do that, but radar can. This kind of radar is
 
 4
-00:00:14,992 --> 00:00:17,400
-finding a vehicle on the ground is hard.
+00:00:13,404 --> 00:00:16,062
+called Synthetic Aperture Radar, or SAR.
 
 5
-00:00:17,450 --> 00:00:22,424
-And the classical methods that clean this up get slow, or stuck, as images
+00:00:16,112 --> 00:00:20,143
+The catch is that SAR images are very noisy. They are covered in a
 
 6
-00:00:22,424 --> 00:00:22,760
-grow.
+00:00:20,143 --> 00:00:21,975
+grainy pattern called speckle.
 
 7
-00:00:24,056 --> 00:00:27,481
-QuantumSAR turns segmentation into an energy puzzle.
+00:00:22,025 --> 00:00:25,890
+Our task, from the Thales challenge, is to find the vehicle in each
 
 8
-00:00:27,531 --> 00:00:31,595
-Each pixel gets a label, target or background, which we write as a tiny
+00:00:25,890 --> 00:00:29,812
+radar image, and mark every pixel as vehicle, shadow, or background.
 
 9
-00:00:31,595 --> 00:00:33,656
-magnet, a spin, pointing up or down.
+00:00:29,862 --> 00:00:32,200
+This is called image segmentation.
 
 10
-00:00:33,706 --> 00:00:38,194
-Neighbouring spins like to agree, and bright pixels prefer to be target.
+00:00:32,250 --> 00:00:36,319
+To do it well, every pixel must be judged together with its neighbours,
 
 11
-00:00:38,244 --> 00:00:42,941
-That is an Ising problem, exactly the kind of optimisation quantum computers
+00:00:36,319 --> 00:00:40,446
+and that turns into a giant puzzle with more possible answers than atoms
 
 12
-00:00:42,941 --> 00:00:43,806
-are built for.
+00:00:40,446 --> 00:00:41,363
+in the universe.
 
 13
-00:00:43,856 --> 00:00:49,149
-We solve it with QAOA, the Quantum Approximate Optimisation Algorithm, running
+00:00:41,412 --> 00:00:45,294
+Classical computers struggle with puzzles like this, so we asked a
 
 14
-00:00:49,149 --> 00:00:49,896
-on Classiq.
+00:00:45,294 --> 00:00:47,940
+simple question: can a quantum computer help?
 
 15
-00:00:51,197 --> 00:00:52,060
-Let's try it.
+00:00:48,820 --> 00:00:51,120
+Here is our idea, in simple words.
 
 16
-00:00:52,110 --> 00:00:55,660
-I pick a noisy radar sample and choose the quantum solver.
+00:00:51,170 --> 00:00:55,588
+Each pixel becomes a tiny magnet that points up or down. Up means
 
 17
-00:00:55,710 --> 00:01:00,504
-A sixty-four by sixty-four image has four thousand pixels, far more than any
+00:00:55,588 --> 00:00:57,695
+vehicle, down means background.
 
 18
-00:01:00,504 --> 00:01:05,047
-simulator has qubits, so the app cuts it into tiny three-by-three tiles.
+00:00:57,745 --> 00:01:01,542
+Bright pixels want to point up, and neighbouring magnets like to point
 
 19
-00:01:05,097 --> 00:01:09,848
-Each tile becomes a nine-qubit circuit, and Classiq runs a whole batch of
+00:01:01,542 --> 00:01:03,982
+the same way, which keeps the picture smooth.
 
 20
-00:01:09,848 --> 00:01:10,760
-tiles at once.
+00:01:04,032 --> 00:01:07,778
+The best arrangement of all the magnets is the one with the lowest
 
 21
-00:01:10,810 --> 00:01:15,301
-The badge always says where a result came from: this one was computed on
+00:01:07,778 --> 00:01:10,333
+energy, and it gives us the cleanest picture.
 
 22
-00:01:15,301 --> 00:01:17,735
-Classiq's cloud simulator, then cached.
+00:01:10,383 --> 00:01:14,523
+Finding that lowest energy is exactly what a quantum algorithm called
 
 23
-00:01:17,785 --> 00:01:21,660
-Orange is the target, and it matches the ground truth closely.
+00:01:14,523 --> 00:01:18,482
+QAOA is designed for, and we run it on Classiq's quantum platform.
 
 24
-00:01:21,710 --> 00:01:23,434
-Now switch on three classes.
+00:01:18,532 --> 00:01:22,586
+One image has four thousand pixels, which is far too many qubits for
 
 25
-00:01:23,484 --> 00:01:28,210
-Every pixel now uses three qubits, and the dark radar shadow behind the
+00:01:22,586 --> 00:01:24,195
+today's quantum simulators.
 
 26
-00:01:28,210 --> 00:01:29,807
-vehicle appears in blue.
+00:01:24,245 --> 00:01:28,834
+So we cut the image into small three by three tiles of nine qubits each,
 
 27
-00:01:31,134 --> 00:01:36,096
-Turn on edge detection, and the app outlines every region, one pixel wide.
+00:01:28,834 --> 00:01:32,850
+solve every tile with QAOA, and stitch the tiles back together.
 
 28
-00:01:36,146 --> 00:01:41,642
-Red traces the vehicle, cyan traces its shadow, ready for a target-recognition
+00:01:33,750 --> 00:01:35,775
+Now let's walk through the project.
 
 29
-00:01:41,642 --> 00:01:41,994
-step.
+00:01:35,825 --> 00:01:40,313
+This is our live web app, deployed on the internet at quantumsar dot
 
 30
-00:01:43,337 --> 00:01:44,562
-So how does it compare?
+00:01:40,313 --> 00:01:42,888
+onrender dot com, so anyone can try it.
 
 31
-00:01:44,612 --> 00:01:47,837
-One click benchmarks every solver on the same image.
+00:01:42,938 --> 00:01:46,830
+At the top, you see the main idea: the image energy becomes a quantum
 
 32
-00:01:47,887 --> 00:01:52,794
-Quantum QAOA lands within a fraction of a percent of the exact optimum found
+00:01:46,830 --> 00:01:50,610
+Hamiltonian, the kind of equation a quantum computer can work with.
 
 33
-00:01:52,794 --> 00:01:57,637
-by graph cut, and far ahead of Otsu and k-means thresholding, which speckle
+00:01:51,950 --> 00:01:56,300
+In the live demo section, I pick one of our fifty sample radar images.
 
 34
-00:01:57,637 --> 00:01:58,024
-fools.
+00:01:56,350 --> 00:02:01,150
+I keep the quantum solver, QAOA on Classiq, and press Run segmentation.
 
 35
-00:01:58,074 --> 00:02:02,300
-To be fair, annealing and graph cut are still faster on a laptop.
+00:02:01,200 --> 00:02:05,169
+The answer appears in about a second, because this image was already
 
 36
-00:02:02,350 --> 00:02:04,617
-And everything exports to CSV.
+00:02:05,169 --> 00:02:07,738
+solved on Classiq, and the result was saved.
 
 37
-00:02:05,931 --> 00:02:07,606
-Now, the honest limits.
+00:02:07,788 --> 00:02:11,603
+The blue badge always tells you which engine produced the result, so
 
 38
-00:02:07,656 --> 00:02:12,684
-Qubit counts keep tiles small, so the quantum part optimises local blocks, not
+00:02:11,603 --> 00:02:12,612
+nothing is hidden.
 
 39
-00:02:12,684 --> 00:02:14,231
-the whole image at once.
+00:02:12,662 --> 00:02:16,542
+The orange shape is the vehicle we found, and it matches the true
 
 40
-00:02:14,281 --> 00:02:18,835
-Live cloud runs take a few minutes per image, which is why this demo serves
+00:02:16,542 --> 00:02:19,288
+answer, shown in the middle, almost perfectly.
 
 41
-00:02:18,835 --> 00:02:20,231
-cached Classiq results.
+00:02:19,338 --> 00:02:23,803
+Below, you can see the scores, and the quantum circuit used for every
 
 42
-00:02:20,281 --> 00:02:25,173
-Bigger devices mean bigger tiles, and next we want real MSTAR data and
+00:02:23,803 --> 00:02:27,750
+tile: nine qubits, with the circuit size reported by Classiq.
 
 43
-00:02:25,173 --> 00:02:26,151
-hardware runs.
+00:02:29,080 --> 00:02:33,441
+Now I switch on three classes. The app also finds the dark radar shadow
 
 44
-00:02:28,062 --> 00:02:32,650
-QuantumSAR is open source, tested, and runs with one Docker command.
+00:02:33,441 --> 00:02:35,530
+behind the vehicle, shown in blue.
 
 45
-00:02:32,700 --> 00:02:36,262
-Grab the code and try the live demo from the links on screen.
+00:02:35,580 --> 00:02:40,130
+And with edge detection switched on, it draws a clean, one pixel wide
+
+46
+00:02:40,130 --> 00:02:43,690
+outline: red for the vehicle, and cyan for the shadow.
+
+47
+00:02:45,010 --> 00:02:49,291
+To be fair, we compare the quantum method with classical methods. One
+
+48
+00:02:49,291 --> 00:02:51,898
+click runs every solver on the same image.
+
+49
+00:02:51,948 --> 00:02:56,543
+The quantum result reaches the same best energy as graph cut, the exact
+
+50
+00:02:56,543 --> 00:03:01,074
+classical method, and it is far more accurate than simple thresholding
+
+51
+00:03:01,074 --> 00:03:02,498
+like Otsu and k-means.
+
+52
+00:03:02,548 --> 00:03:06,441
+But classical methods are still much faster today, and we show that
+
+53
+00:03:06,441 --> 00:03:08,185
+honestly in the runtime chart.
+
+54
+00:03:08,235 --> 00:03:11,520
+All of these numbers can be exported as a CSV file.
+
+55
+00:03:12,880 --> 00:03:15,155
+You can also upload your own image.
+
+56
+00:03:15,205 --> 00:03:19,629
+This image has never been solved before, so pressing Run sends it live
+
+57
+00:03:19,629 --> 00:03:20,830
+to Classiq's cloud.
+
+58
+00:03:20,880 --> 00:03:25,424
+A progress bar shows every stage: first a quick pass on a smaller copy
+
+59
+00:03:25,424 --> 00:03:28,280
+of the image, then the full resolution pass.
+
+60
+00:03:28,330 --> 00:03:32,093
+While it runs, the How it works section explains the method in four
+
+61
+00:03:32,093 --> 00:03:32,430
+steps.
+
+62
+00:03:32,480 --> 00:03:36,831
+And here we list our honest limitations: today's qubit limits keep the
+
+63
+00:03:36,831 --> 00:03:40,933
+tiles small, and the quantum part is not yet faster than classical
+
+64
+00:03:40,933 --> 00:03:41,430
+methods.
+
+65
+00:03:46,750 --> 00:03:50,711
+The job has finished. The green badge confirms that this result was
+
+66
+00:03:50,711 --> 00:03:53,312
+computed live on Classiq, in about a minute.
+
+67
+00:03:53,362 --> 00:03:57,631
+The result is now saved, so the same image will load instantly next
+
+68
+00:03:57,631 --> 00:03:57,950
+time.
+
+69
+00:03:59,250 --> 00:04:01,550
+So how did we build and deploy all this?
+
+70
+00:04:01,600 --> 00:04:06,306
+The quantum part uses the Classiq Python SDK. We write the QAOA circuit
+
+71
+00:04:06,306 --> 00:04:11,012
+in Python, Classiq turns it into a real quantum circuit, and runs it on
+
+72
+00:04:11,012 --> 00:04:12,338
+its cloud simulator.
+
+73
+00:04:12,388 --> 00:04:16,163
+We checked it carefully: on small tiles, the quantum answer matches a
+
+74
+00:04:16,163 --> 00:04:19,938
+full brute force search, and we have more than forty automatic tests.
+
+75
+00:04:19,988 --> 00:04:24,315
+The classical comparison methods, graph cut, simulated annealing and
+
+76
+00:04:24,315 --> 00:04:26,925
+thresholding, are also written in Python.
+
+77
+00:04:26,975 --> 00:04:31,037
+The backend is FastAPI, the website is built in React with animated
+
+78
+00:04:31,037 --> 00:04:34,856
+React Bits components, and everything is packed into one Docker
+
+79
+00:04:34,856 --> 00:04:35,462
+container.
+
+80
+00:04:35,513 --> 00:04:39,925
+Our code is public on GitHub. Every change is tested automatically with
+
+81
+00:04:39,925 --> 00:04:44,338
+GitHub Actions, and then deployed to Render, where the app runs online.
+
+82
+00:04:44,388 --> 00:04:48,324
+Classiq normally needs a browser login, so we created a separate, secure
+
+83
+00:04:48,324 --> 00:04:52,205
+login just for the server, stored as a secret, so the live site can run
+
+84
+00:04:52,205 --> 00:04:53,463
+quantum jobs by itself.
+
+85
+00:04:53,513 --> 00:04:57,685
+Long quantum runs are handled as background jobs, one at a time, and
+
+86
+00:04:57,685 --> 00:05:01,550
+every finished result is saved so it loads instantly next time.
+
+87
+00:05:02,420 --> 00:05:07,321
+QuantumSAR was built by Team From Nowhere: Jerrick Austin Manuel G,
+
+88
+00:05:07,321 --> 00:05:12,295
+Nidhin Suresh, Suresh Ramanujam, Yokeshwaran Anandan, and Hari Babu.
+
+89
+00:05:12,345 --> 00:05:16,107
+You can find our code on GitHub and try the live app using the links on
+
+90
+00:05:16,107 --> 00:05:17,750
+screen. Thank you for watching!

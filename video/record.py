@@ -81,9 +81,13 @@ class Director:
         self.events.append({"t": round(self.now(), 3), "kind": kind, "segment": self.seg, **kw})
 
     # ------------------------------------------------------------ segments
-    def segment(self, seg_id: str, plan: list):
+    def segment(self, seg_id: str, plan: list, before=None):
+        """``before`` runs BEFORE the narration clock starts (e.g. wait for a live job)."""
         tm = self.timings[seg_id]
         self.seg = seg_id
+        if before:
+            self.log("before", name=before.__name__)
+            before()
         self.seg_start = self.now()
         self.log("segment_start", duration=tm["duration"])
         for idx, action in plan:
@@ -97,6 +101,14 @@ class Director:
     # ------------------------------------------------------------ primitives
     def ensure_overlay(self):
         self.page.evaluate(OVERLAY_JS.replace("%ZOOM%", str(UI_ZOOM)))
+        if getattr(self, "site_label", None):  # small chip showing which site is being recorded
+            self.page.evaluate("""(label) => { if (document.getElementById('qs-site')) return;
+              const c = document.createElement('div'); c.id = 'qs-site';
+              Object.assign(c.style, {position: 'fixed', right: '18px', top: '14px', zIndex: 2147483645,
+                background: 'rgba(6,10,20,.82)', color: '#e2e8f0', font: '600 17px sans-serif',
+                padding: '8px 14px', borderRadius: '999px', border: '1px solid rgba(110,231,183,.6)'});
+              c.innerHTML = '<span style="color:#6ee7b7">●</span>&nbsp; live site: ' + label;
+              document.documentElement.appendChild(c); }""", self.site_label)
 
     def move_to(self, loc, steps: int = 22):
         loc.scroll_into_view_if_needed()
@@ -130,10 +142,38 @@ class Director:
         self.page.wait_for_timeout(900)
 
 
+def make_upload_image(path: Path) -> Path:
+    """A fresh, never-seen SAR-like image (new random seed every recording), so
+    the upload scene always runs genuinely LIVE on Classiq."""
+    import numpy as np
+    from PIL import Image
+
+    rng = np.random.default_rng(int(time.time()))
+    n = 64
+    img = rng.gamma(3.0, 1 / 3.0, (n, n))
+    yy, xx = np.mgrid[0:n, 0:n]
+    cx, cy = rng.uniform(24, 40), rng.uniform(22, 36)
+    ang = rng.uniform(0, np.pi)
+    u = np.cos(ang) * (xx - cx) + np.sin(ang) * (yy - cy)
+    v = -np.sin(ang) * (xx - cx) + np.cos(ang) * (yy - cy)
+    target = (np.abs(u / 9) ** 4 + np.abs(v / 5) ** 4) <= 1
+    img[target] *= 7.0
+    shadow = np.zeros_like(target)
+    ys, xs = np.nonzero(target)
+    for k in range(1, 11):
+        shadow[np.clip(ys + k, 0, n - 1), xs] = True
+    img[shadow & ~target] *= 0.25
+    x = np.log1p(img)
+    x = (np.clip((x - x.min()) / (x.max() - x.min()), 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(x).save(path)
+    return path
+
+
 def build_plan(d: Director):
-    """Shot list for the React UI (all selectors are data-testid hooks in frontend/src)."""
+    """Shot list for the walkthrough on the deployed React UI (data-testid hooks)."""
     pg = d.page
     T = pg.get_by_test_id
+    upload_png = make_upload_image(BUILD / "my_radar_image.png")
 
     def wait_result():
         T("mode-badge").wait_for(timeout=180_000)
@@ -144,8 +184,6 @@ def build_plan(d: Director):
         wait_result()
 
     def run_in_place(*toggles: str):
-        """Flip toggles and run without scrolling away from the result panels
-        (keeps the viewer's eye on the image that changes)."""
         for t in toggles:
             T(t).dispatch_event("click")
         pg.wait_for_timeout(150)
@@ -156,129 +194,160 @@ def build_plan(d: Director):
     def show(testid: str, block: str = "center"):
         d.scroll_to(T(testid), block=block)
 
-    # ---------------- hook
-    def hook_input():
-        show("panels")
-        d.highlight(T("panel-input"), "Raw SAR image: speckle noise", 7.0, zoom=1.6)
+    # ---------------- w_intro: the live app
+    def intro_site():
+        d.highlight(pg.locator("#qs-site"), None, 6.0, zoom=1.0)
 
-    def hook_slow():
-        d.highlight(T("solver-graphcut"), "classical solvers", 2.4)
-        pg.wait_for_timeout(300)
-        d.highlight(T("solver-icm"), None, 2.2)
+    def intro_formula():
+        d.highlight(T("hero-formula"), "image energy  ->  quantum Hamiltonian", 7.5, zoom=1.45)
 
-    # ---------------- idea
-    def idea_energy():
-        d.scroll_top()
-        pg.wait_for_timeout(300)
-        d.highlight(T("hero-formula"), "MRF energy = Ising Hamiltonian", 11.0, zoom=1.5)
-
-    def idea_encoding():
-        show("how-encoding")
-        d.highlight(T("how-encoding"), "1 pixel = 1 qubit", 5.2, zoom=1.35)
-
-    def idea_qaoa():
-        d.highlight(T("how-qaoa"), "QAOA on Classiq", 5.0, zoom=1.35)
-
-    # ---------------- demo
-    def demo_start():
-        show("controls", block="start")
-
+    # ---------------- w_demo
     def demo_pick():
+        show("controls", block="start")
         d.click(T("thumb-sar_000_normal"))
-        pg.wait_for_timeout(500)
-        d.move_to(T("solver-classiq"))
-        d.highlight(T("solver-classiq"), "Quantum solver", 2.2)
-
-    def demo_tiles():
-        show("slider-tile")
-        d.highlight(T("slider-tile"), "3×3 tiles = 9 qubits", 6.0)
+        pg.wait_for_timeout(400)
+        d.highlight(T("panel-input"), "noisy input", 3.0)
 
     def demo_run():
+        d.move_to(T("solver-classiq"))
+        d.highlight(T("solver-classiq"), "Quantum solver", 2.2)
+        pg.wait_for_timeout(1200)
         run()
-        show("circuit-card")
-        d.highlight(T("circuit-card"), "Circuit per tile", 4.6)
+        show("panels")          # back to the result after clicking Run
+
+    def demo_fast():
+        d.highlight(T("panel-seg"), "solved on Classiq earlier", 4.5)
 
     def demo_badge():
-        show("panels")
-        d.highlight(T("mode-badge"), None, 5.5, zoom=1.5)
+        d.highlight(T("mode-badge"), None, 5.0, zoom=1.5)
 
     def demo_compare():
-        d.highlight(T("panel-gt"), "Ground truth", 3.8)
+        d.highlight(T("panel-gt"), "true answer", 3.6)
         pg.wait_for_timeout(250)
-        d.highlight(T("panel-seg"), "QAOA result", 3.6)
+        d.highlight(T("panel-seg"), "our result", 3.4)
 
-    def demo_three():
+    def demo_metrics():
+        show("metrics")
+        d.highlight(T("metrics"), "scores", 3.2)
+        pg.wait_for_timeout(3300)
+        d.highlight(T("circuit-card"), "9-qubit circuit per tile", 4.0)
+
+    # ---------------- w_classes
+    def classes_three():
+        # start the (2-class) benchmark now, off-screen: on the free server it takes
+        # ~15 s, so its table is ready when the benchmark narration begins
+        T("bench-btn").dispatch_event("click")
+        pg.wait_for_timeout(300)
+        show("panels")
         run_in_place("toggle-3class")
-        d.highlight(T("panel-seg"), "Target + shadow", 5.5, zoom=1.6)
+        d.highlight(T("panel-seg"), "vehicle + shadow", 5.0, zoom=1.6)
 
-    # ---------------- edges
-    def edges_on():
+    def classes_edges():
         run_in_place("toggle-edges")
-        pg.wait_for_timeout(400)
-        d.highlight(T("panel-edges"), "Single-pixel edges", 4.0)
-
-    def edges_zoom():
-        d.highlight(T("panel-edges"), None, 4.6, zoom=1.7)
-        pg.wait_for_timeout(4900)
-        d.click(T("toggle-3class"))           # back to 2 classes for the benchmark
+        pg.wait_for_timeout(300)
+        d.highlight(T("panel-edges"), "one-pixel outline", 4.5, zoom=1.6)
+        pg.wait_for_timeout(4700)
+        T("toggle-3class").dispatch_event("click")   # back to 2 classes for the benchmark
+        T("toggle-edges").dispatch_event("click")
         show("bench-btn", block="start")
 
-    # ---------------- benchmark
-    def bench_click():
-        d.click(T("bench-btn"))
+    # ---------------- w_bench
+    def bench_wait():
         T("bench-table").wait_for(timeout=180_000)
         pg.wait_for_timeout(400)
         show("bench-table", block="start")
 
     def bench_table():
-        d.highlight(T("row-classiq"), "QAOA on Classiq", 4.2)
+        d.highlight(T("row-classiq"), "QAOA on Classiq", 4.0)
         pg.wait_for_timeout(300)
         d.highlight(T("row-graphcut"), "exact optimum: same energy", 4.0)
         pg.wait_for_timeout(4300)
         show("chart-energy")
-        d.highlight(T("chart-iou"), "Accuracy (IoU)", 2.6)
+        d.highlight(T("chart-iou"), "accuracy", 2.6)
 
     def bench_runtime():
-        d.highlight(T("chart-runtime"), "Runtime: classical still faster", 4.2, zoom=1.3)
+        d.highlight(T("chart-runtime"), "classical is still faster", 4.2, zoom=1.3)
 
     def bench_csv():
         show("export-csv")
         d.move_to(T("export-csv"))
         d.highlight(T("export-csv"), None, 2.2)
 
-    # ---------------- limits
-    def lim_intro():
+    # ---------------- w_upload: live Classiq run
+    def up_choose():
         show("controls", block="start")
-        run()                                  # 2-class cached Classiq view
+        d.move_to(T("upload-btn"))
+        d.highlight(T("upload-btn"), "upload your own image", 3.0)
+        pg.locator("input[type=file]").set_input_files(str(upload_png))
+        pg.wait_for_timeout(800)
 
-    def lim_tiles():
-        show("tiles-card")
-        d.highlight(T("tiles-card"), "qubits / tile", 6.0)
+    def up_run():
+        d.highlight(T("cache-hint"), "runs LIVE on Classiq", 3.0)
+        pg.wait_for_timeout(1200)
+        d.click(T("run-btn"))
+        T("job-progress").wait_for(timeout=60_000)
 
-    def lim_cached():
-        show("panels")
-        d.highlight(T("mode-badge"), "Cached Classiq run", 5.5)
+    def up_progress():
+        show("job-progress")
+        d.highlight(T("job-progress"), "live progress", 6.0, zoom=1.5)
 
-    def lim_future():
+    def up_how():
+        show("how-encoding")
+        d.highlight(T("how-model"), None, 1.8)
+        for t in ("how-encoding", "how-qaoa", "how-tiling"):
+            pg.wait_for_timeout(1700)
+            d.highlight(T(t), None, 1.8)
+
+    def up_limits():
         show("how-limits")
-        d.highlight(T("how-limits"), "Honest limitations", 5.5, zoom=1.25)
+        d.highlight(T("how-limits"), "honest limitations", 7.0, zoom=1.25)
+
+    # ---------------- w_live
+    def live_wait():
+        show("panels")
+        T("mode-badge").wait_for(timeout=1_200_000)   # the live job finishes (~1-2 min)
+        pg.wait_for_timeout(600)
+
+    def live_badge():
+        d.highlight(T("mode-badge"), None, 5.0, zoom=1.5)
+
+    def live_seg():
+        d.highlight(T("panel-seg"), "computed live on Classiq", 3.5)
 
     return [
-        ("hook", [(1, hook_input), (2, hook_slow)]),
-        ("idea", [(0, idea_energy), (3, idea_encoding), (4, idea_qaoa)]),
-        ("demo", [(0, demo_start), (1, demo_pick), (2, demo_tiles), (3, demo_run), (4, demo_badge),
-                  (5, demo_compare), (6, demo_three)]),
-        ("edges", [(0, edges_on), (1, edges_zoom)]),
-        ("benchmark", [(0, bench_click), (2, bench_table), (3, bench_runtime), (4, bench_csv)]),
-        ("limits", [(0, lim_intro), (1, lim_tiles), (2, lim_cached), (3, lim_future)]),
+        ("w_intro", [(1, intro_site), (2, intro_formula)], None),
+        ("w_demo", [(0, demo_pick), (1, demo_run), (2, demo_fast), (3, demo_badge), (4, demo_compare),
+                    (5, demo_metrics)], None),
+        ("w_classes", [(0, classes_three), (1, classes_edges)], None),
+        ("w_bench", [(0, bench_wait), (1, bench_table), (2, bench_runtime), (3, bench_csv)], None),
+        ("w_upload", [(0, up_choose), (1, up_run), (2, up_progress), (3, up_how), (4, up_limits)], None),
+        ("w_live", [(0, live_badge), (1, live_seg)], live_wait),
     ]
 
 
+def wait_healthy(url: str, timeout_s: int = 300):
+    """Free-tier hosts sleep when idle: poll /health until the real app answers."""
+    import json as _json
+    import urllib.request
+
+    t0 = time.time()
+    while time.time() - t0 < timeout_s:
+        try:
+            with urllib.request.urlopen(url.rstrip("/") + "/health", timeout=30) as r:
+                if _json.loads(r.read()).get("status") == "ok":
+                    return
+        except Exception:  # noqa: BLE001 - still waking up
+            pass
+        time.sleep(5)
+    raise RuntimeError(f"{url} did not become healthy within {timeout_s}s")
+
+
 def warm_up(browser, url: str):
-    """Load the app once so first-run imports don't stall the recording."""
+    """Wake the (free-tier) server and load the app once before recording."""
+    wait_healthy(url)
     ctx = browser.new_context(viewport={"width": W, "height": H})
     pg = ctx.new_page()
-    pg.goto(url, wait_until="networkidle")
+    pg.goto(url, wait_until="networkidle", timeout=180_000)
     pg.get_by_test_id("run-btn").click()
     pg.get_by_test_id("mode-badge").wait_for(timeout=180_000)
     ctx.close()
@@ -286,7 +355,7 @@ def warm_up(browser, url: str):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://localhost:8000")
+    ap.add_argument("--url", default=json.loads((HERE / "segments.json").read_text(encoding="utf-8"))["app_url"])
     ap.add_argument("--headed", action="store_true")
     a = ap.parse_args()
     timings = {t["id"]: t for t in json.loads((BUILD / "timings.json").read_text(encoding="utf-8"))}
@@ -299,14 +368,15 @@ def main():
                                   record_video_dir=str(rec_dir), record_video_size={"width": VW, "height": VH})
         page = ctx.new_page()
         d = Director(page, timings)           # video clock starts with the page
+        d.site_label = a.url.split("//")[-1].rstrip("/")
         page.goto(a.url, wait_until="networkidle")
         page.get_by_test_id("run-btn").wait_for(timeout=120_000)
         page.wait_for_timeout(2500)          # let the hero intro animations play
         d.ensure_overlay()
         page.mouse.move(W * 0.6, H * 0.45)
         d.log("ready")
-        for seg_id, plan in build_plan(d):
-            d.segment(seg_id, plan)
+        for seg_id, plan, before in build_plan(d):
+            d.segment(seg_id, plan, before)
         d.log("end")
         video_path = page.video.path()
         ctx.close()
