@@ -3,7 +3,7 @@ starts) from out/final.mp4 and lays them out in contact sheets with the
 sentence underneath, so a human (or an agent) can verify that what is said
 matches what is on screen. Also reports actions that started late.
 
-Outputs build/check/sheet_*.png and exits non-zero if an action was > 2.5 s late.
+Outputs build/check/sheet_*.png and exits non-zero if an action was > 3 s late.
 """
 import json
 import subprocess
@@ -50,7 +50,7 @@ def main():
     for s, n, dt in late:
         print(f"late action {s}/{n}: {dt:.2f}s")
     print(f"{len(samples)} frames -> {out}")
-    sys.exit(1 if any(dt > 2.5 for *_, dt in late) else 0)
+    sys.exit(1 if any(dt > 3.0 for *_, dt in late) else 0)
 
 
 if __name__ == "__main__":

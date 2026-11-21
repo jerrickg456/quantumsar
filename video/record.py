@@ -120,10 +120,12 @@ class Director:
                      cx=(b["x"] + b["width"] / 2) * DSF, cy=(b["y"] + b["height"] / 2) * DSF, z=zoom)
 
     def scroll_to(self, loc, block: str = "center"):
+        self.page.evaluate("() => window.qsClear && window.qsClear()")  # fixed overlays must not outlive a scroll
         loc.evaluate(f"e => e.scrollIntoView({{behavior: 'smooth', block: '{block}'}})")
         self.page.wait_for_timeout(900)
 
     def scroll_top(self):
+        self.page.evaluate("() => window.qsClear && window.qsClear()")
         self.page.evaluate("""() => { const m = document.querySelector('[data-testid="stMain"]')
             || document.querySelector('section.main'); (m || window).scrollTo({top: 0, behavior: 'smooth'}); }""")
         self.page.wait_for_timeout(900)
@@ -166,15 +168,21 @@ def build_plan(d: Director):
         cap = pg.get_by_test_id("stMain").get_by_test_id("stCaptionContainer").first
         d.highlight(cap, "MRF energy = Ising Hamiltonian", 9.5, zoom=1.45)
 
-    def idea_explainer():
+    def explainer_item(text: str):
+        """Open the 'How it works' expander if needed, scroll the bullet into
+        view and let the layout settle before measuring it."""
         exp = pg.get_by_test_id("stExpander").filter(has_text="How it works")
-        d.scroll_to(exp)
-        if not exp.get_by_text("Quantum encoding").is_visible():
+        if not exp.get_by_text(text).is_visible():
+            d.scroll_to(exp)
             d.click(exp.get_by_text("How it works & honest limitations"))
-            pg.wait_for_timeout(800)
-        li = exp.get_by_text("Quantum encoding").locator("xpath=ancestor::li[1]")
+            pg.wait_for_timeout(700)
+        li = exp.get_by_text(text).locator("xpath=ancestor::li[1]")
         d.scroll_to(li)
-        d.highlight(li, "1 pixel = 1 qubit", 5.0)
+        pg.wait_for_timeout(300)
+        return li
+
+    def idea_explainer():
+        d.highlight(explainer_item("Quantum encoding"), "1 pixel = 1 qubit", 5.0)
 
     def idea_qaoa():
         d.scroll_top()
@@ -264,10 +272,7 @@ def build_plan(d: Director):
         d.highlight(pg.locator(".mode-badge").first, "Cached Classiq run", 5.5)
 
     def lim_future():
-        exp = pg.get_by_test_id("stExpander").filter(has_text="How it works")
-        li = exp.get_by_text("Limits.").locator("xpath=ancestor::li[1]")
-        d.scroll_to(li)
-        d.highlight(li, "Honest limitations", 5.5)
+        d.highlight(explainer_item("Limits."), "Honest limitations", 5.5)
 
     return [
         ("hook", [(1, hook_input), (2, hook_slow)]),
