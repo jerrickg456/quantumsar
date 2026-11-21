@@ -9,7 +9,7 @@ Team **From Nowhere** · Thales SAR Image Segmentation challenge · built with C
 | **Live app** | **https://quantumsar.onrender.com** |
 | **Source code** | **https://github.com/jerrickg456/quantumsar** |
 | **API (interactive docs)** | https://quantumsar.onrender.com/docs |
-| **Demo video** | [`video/out/final.mp4`](../video/out/final.mp4) (about 5 minutes, with subtitles) |
+| **Demo video** | https://github.com/jerrickg456/quantumsar/blob/main/video/out/final.mp4 (about 5 minutes, with subtitles) |
 | **Team** | Jerrick Austin Manuel G · Nidhin Suresh · Suresh Ramanujam · Yokeshwaran Anandan · Hari Babu |
 
 > The live app runs on a free server that sleeps when nobody uses it. The first visit after a quiet
@@ -71,14 +71,14 @@ Open **https://quantumsar.onrender.com** and scroll to **Live demo**.
 2. **Pick a solver.** The default is **Quantum · QAOA on Classiq**. You can also choose the classical
    methods to compare.
 3. **Optional switches:**
-   * **3 classes** — also find the shadow (shown in blue).
-   * **Edge detection** — draw the outline (red = vehicle, cyan = shadow).
-   * Sliders for smoothness (λ), tile size, QAOA depth, shots and sweeps.
+    * **3 classes** — also find the shadow (shown in blue).
+    * **Edge detection** — draw the outline (red = vehicle, cyan = shadow).
+    * Sliders for smoothness (λ), tile size, QAOA depth, shots and sweeps.
 4. Press **▶ Run segmentation**.
 5. Read the result:
-   * **Segmentation** — orange = vehicle, blue = shadow.
-   * **Ground truth** — the correct answer (sample images only).
-   * **Badge** — tells you exactly which engine produced the result:
+    * **Segmentation** — orange = vehicle, blue = shadow.
+    * **Ground truth** — the correct answer (sample images only).
+    * **Badge** — tells you exactly which engine produced the result:
 
 | Badge | Meaning |
 |---|---|
@@ -98,6 +98,36 @@ Open **https://quantumsar.onrender.com** and scroll to **Live demo**.
 ## 4. Results
 
 <!-- RESULTS-TABLE -->
+Tested on **50 synthetic MSTAR-like radar images** (normal, low-contrast, no-vehicle and very speckled
+cases). The Classiq rows are real runs on Classiq's cloud simulator.
+
+**2 classes (vehicle vs. background)**
+
+| Method | Images | Accuracy | IoU | Typical time per image |
+|---|---|---|---|---|
+| **QAOA on Classiq (quantum)** | 50 | 99.8 % | 0.916 | 159 s (Classiq cloud) |
+| QAOA, local simulator (quantum) | 50 | 99.8 % | 0.915 | 543 ms |
+| Graph cut (classical, exact) | 50 | 99.8 % | 0.926 | 13 ms |
+| Simulated annealing (classical) | 50 | 99.8 % | 0.920 | 538 ms |
+| ICM (classical) | 50 | 96.2 % | 0.533 | 15 ms |
+| Otsu threshold (classical) | 50 | 66.4 % | 0.413 | 0 ms |
+| k-means (classical) | 50 | 70.6 % | 0.444 | 2 ms |
+
+On the 50 images, QAOA on Classiq reached **the exact best energy (same as graph cut) on
+62 % of them**, and on average it was within **0.14 %** of the exact optimum.
+
+**3 classes (vehicle, shadow, background)**
+
+| Method | Images | Accuracy | IoU | Typical time per image |
+|---|---|---|---|---|
+| **QAOA on Classiq (quantum)** | 10 | 98.5 % | 0.792 | 177 s (Classiq cloud) |
+| QAOA, local simulator (quantum) | 50 | 98.6 % | 0.806 | 1.6 s |
+| Graph cut, α-expansion (classical) | 50 | 99.1 % | 0.875 | 47 ms |
+| Simulated annealing (classical) | 50 | 98.9 % | 0.848 | 624 ms |
+| ICM (classical) | 50 | 88.1 % | 0.465 | 23 ms |
+| Otsu threshold (classical) | 50 | 76.3 % | 0.485 | 25 ms |
+| k-means (classical) | 50 | 76.7 % | 0.481 | 4 ms |
+<!-- /RESULTS-TABLE -->
 
 What the numbers mean:
 
@@ -107,8 +137,9 @@ What the numbers mean:
   Graph cut finds the **exact** lowest energy for the 2-class problem, so it is the reference.
 * **Runtime** — time per image. For Classiq this is the real time of the cloud run.
 
-**Honest summary:** QAOA on Classiq reaches the same quality as the best classical method (graph cut) and
-is far more accurate than simple thresholding (Otsu, k-means). But classical methods are still much
+**Honest summary:** for 2 classes, QAOA on Classiq is as accurate as the best classical methods
+(99.8 % of pixels correct, within 0.14 % of the exact optimum energy) and far more accurate than simple
+thresholding (Otsu, k-means), which are fooled by speckle. But classical methods are still much
 faster today. Our contribution is a correct, tested, end-to-end quantum pipeline that is ready to scale as
 quantum hardware grows.
 

@@ -1,0 +1,86 @@
+[1/50] sar_000_normal
+[2/50] sar_001_normal
+[3/50] sar_002_low_snr
+[4/50] sar_003_no_target
+[5/50] sar_004_speckled
+[6/50] sar_005_normal
+[7/50] sar_006_normal
+[8/50] sar_007_low_snr
+[9/50] sar_008_no_target
+[10/50] sar_009_speckled
+[11/50] sar_010_normal
+[12/50] sar_011_normal
+[13/50] sar_012_low_snr
+[14/50] sar_013_no_target
+[15/50] sar_014_speckled
+[16/50] sar_015_normal
+[17/50] sar_016_normal
+[18/50] sar_017_low_snr
+[19/50] sar_018_no_target
+[20/50] sar_019_speckled
+[21/50] sar_020_normal
+[22/50] sar_021_normal
+[23/50] sar_022_low_snr
+[24/50] sar_023_no_target
+[25/50] sar_024_speckled
+[26/50] sar_025_normal
+[27/50] sar_026_normal
+[28/50] sar_027_low_snr
+[29/50] sar_028_no_target
+[30/50] sar_029_speckled
+[31/50] sar_030_normal
+[32/50] sar_031_normal
+[33/50] sar_032_low_snr
+[34/50] sar_033_no_target
+[35/50] sar_034_speckled
+[36/50] sar_035_normal
+[37/50] sar_036_normal
+[38/50] sar_037_low_snr
+[39/50] sar_038_no_target
+[40/50] sar_039_speckled
+[41/50] sar_040_normal
+[42/50] sar_041_normal
+[43/50] sar_042_low_snr
+[44/50] sar_043_no_target
+[45/50] sar_044_speckled
+[46/50] sar_045_normal
+[47/50] sar_046_normal
+[48/50] sar_047_low_snr
+[49/50] sar_048_no_target
+[50/50] sar_049_speckled
+amplification {'qubits': 4, 'p': 1, 'p_opt': 0.4941095872643399, 'uniform': 0.0625, 'amplification': 7.905753396229438}
+amplification {'qubits': 4, 'p': 2, 'p_opt': 0.6142199220735439, 'uniform': 0.0625, 'amplification': 9.827518753176703}
+amplification {'qubits': 4, 'p': 3, 'p_opt': 0.637936509892297, 'uniform': 0.0625, 'amplification': 10.206984158276752}
+amplification {'qubits': 9, 'p': 1, 'p_opt': 0.19027872590883224, 'uniform': 0.001953125, 'amplification': 97.42270766532211}
+amplification {'qubits': 9, 'p': 2, 'p_opt': 0.31719933215199386, 'uniform': 0.001953125, 'amplification': 162.40605806182086}
+amplification {'qubits': 9, 'p': 3, 'p_opt': 0.32182428847365524, 'uniform': 0.001953125, 'amplification': 164.77403569851148}
+amplification {'qubits': 16, 'p': 1, 'p_opt': 0.048148292252712645, 'uniform': 1.52587890625e-05, 'amplification': 3155.446481073776}
+amplification {'qubits': 16, 'p': 2, 'p_opt': 0.10386236813916294, 'uniform': 1.52587890625e-05, 'amplification': 6806.7241583681825}
+amplification {'qubits': 16, 'p': 3, 'p_opt': 0.11141793855008499, 'uniform': 1.52587890625e-05, 'amplification': 7301.88602081837}
+    n_classes      solver              name  images  accuracy     iou    dice  runtime_s_median     energy
+0           2   annealing         Annealing      50    0.9977  0.9201  0.9477            0.4799   712.9931
+1           2     classiq    QAOA (Classiq)      50    0.9976  0.9157  0.9456          159.0086   713.8939
+2           2    graphcut         Graph cut      50    0.9980  0.9263  0.9516            0.0111   712.6148
+3           2         icm               ICM      50    0.9617  0.5327  0.6074            0.0137   948.1784
+4           2      kmeans           k-means      50    0.7063  0.4441  0.4977            0.0026  2114.2231
+5           2        otsu              Otsu      50    0.6643  0.4127  0.4640            0.0003  2331.6107
+6           2  qaoa_local  QAOA (local sim)      50    0.9976  0.9150  0.9452            0.4850   713.9133
+7           2    sa_tiled          Tiled SA      50    0.9977  0.9182  0.9472            0.9119   713.7605
+8           3   annealing         Annealing      50    0.9891  0.8480  0.8783            0.5479  1569.0826
+9           3     classiq    QAOA (Classiq)      10    0.9854  0.7921  0.8238          177.3041  1540.5895
+10          3    graphcut         Graph cut      50    0.9906  0.8750  0.8989            0.0453  1565.8418
+11          3         icm               ICM      50    0.8810  0.4653  0.5506            0.0206  2197.1242
+12          3      kmeans           k-means      50    0.7667  0.4807  0.5586            0.0041  5148.9604
+13          3        otsu              Otsu      50    0.7629  0.4845  0.5605            0.0211  5066.9845
+14          3  qaoa_local  QAOA (local sim)      50    0.9856  0.8063  0.8432            1.4428  1577.7884
+15          3    sa_tiled          Tiled SA      50    0.9834  0.7800  0.8278            2.9414  1589.9353
+energy gap to optimum (%):
+ solver
+annealing       0.035
+classiq         0.143
+graphcut        0.000
+icm            27.319
+kmeans        187.073
+otsu          230.077
+qaoa_local      0.147
+sa_tiled        0.127
