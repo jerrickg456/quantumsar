@@ -1,0 +1,20 @@
+# Runtime (pinned). Python 3.11.
+numpy==2.4.6
+scipy==1.17.1
+pandas==2.3.3
+PyMaxflow==1.3.2
+pillow==13.0.0
+matplotlib==3.11.2
+fastapi==0.165.0
+uvicorn==0.54.0
+python-multipart==0.0.34
+pydantic==2.14.4
+requests==2.34.2
+streamlit==1.67.0
+altair==6.3.0
+tabulate==0.10.0
+# Quantum SDK (pinned; API verified against docs.classiq.io for this version)
+classiq==1.36.0
+# Windows keyring workaround for Classiq auth (see src/quantumsar/auth.py)
+keyring==23.13.1
+keyrings.alt==5.0.2

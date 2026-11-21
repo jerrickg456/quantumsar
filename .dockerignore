@@ -1,0 +1,9 @@
+.venv
+.git
+**/__pycache__
+.pytest_cache
+config.env
+*.env
+video/build
+video/out
+notebooks/.ipynb_checkpoints
