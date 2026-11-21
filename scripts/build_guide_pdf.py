@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "docs" / "PROJECT_GUIDE.md"
 OUT = ROOT / "docs" / "QuantumSAR_Project_Guide.pdf"
-LOGO = ROOT / "Team From Nowhere.png"
+LOGO = ROOT / "docs" / "assets" / "team_from_nowhere.png"
 
 CSS = """
 @page { size: A4; margin: 16mm 15mm 18mm 15mm; }

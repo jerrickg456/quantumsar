@@ -266,7 +266,7 @@ def s_deploy():
 def s_team(cfg):
     img = Image.new("RGB", (W, H), (255, 255, 255))
     d = ImageDraw.Draw(img)
-    logo = Image.open(ROOT / "Team From Nowhere.png").convert("RGB")
+    logo = Image.open(ROOT / "docs" / "assets" / "team_from_nowhere.png").convert("RGB")
     logo.thumbnail((900, 520))
     img.paste(logo, ((W // 2 - logo.width) // 2 + 30, (H - logo.height) // 2 - 110))
     red, gold, ink = (165, 20, 25), (214, 150, 20), (40, 40, 48)
