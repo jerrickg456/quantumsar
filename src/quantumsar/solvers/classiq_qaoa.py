@@ -30,6 +30,7 @@ from ..qubo import TileQUBO
 from .tile_solvers import StatevectorQAOA, TileResult, TileSolver, linear_ramp, qaoa_normalisation
 
 CLASSIQ_SIM_MAX_QUBITS = 28
+_PROGRAM_CACHE: dict = {}  # (n, edges, p) -> (quantum program, metrics); shared per process
 
 
 def _signature(q: TileQUBO) -> tuple:
@@ -113,6 +114,9 @@ class ClassiqQAOASolver(TileSolver):
     # ----------------------------------------------------------- synthesis
     def program(self, q: TileQUBO):
         sig = _signature(q)
+        key = (*sig, self.p)
+        if key in _PROGRAM_CACHE:
+            self._progs[sig] = _PROGRAM_CACHE[key]
         if sig not in self._progs:
             from classiq import Constraints, synthesize
 
@@ -125,9 +129,11 @@ class ClassiqQAOASolver(TileSolver):
             metrics = _circuit_metrics(qprog)
             metrics.update({"qubits_logical": n, "edges": len(edges), "p": self.p,
                             "synthesis_seconds": round(time.perf_counter() - t0, 2)})
-            self._progs[sig] = (qprog, metrics)
+            self._progs[sig] = _PROGRAM_CACHE[key] = (qprog, metrics)
             if not self.circuit or n >= self.circuit.get("qubits_logical", 0):
                 self.circuit = metrics
+        if not self.circuit or sig[0] >= self.circuit.get("qubits_logical", 0):
+            self.circuit = self._progs[sig][1]
         return self._progs[sig]
 
     def params_for(self, q: TileQUBO, angles: np.ndarray) -> list[float]:
