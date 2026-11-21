@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+  background: #070b14;
+}
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+
+/* range input styling */
+.qs-range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px; background: rgba(255,255,255,.12); outline: none; }
+.qs-range::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #ffb020;
+  box-shadow: 0 0 0 4px rgba(255,176,32,.2), 0 0 14px rgba(255,176,32,.6); cursor: pointer; }
+.qs-range::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #ffb020; cursor: pointer; }

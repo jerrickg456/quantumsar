@@ -29,8 +29,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from quantumsar import __version__  # noqa: E402
-from quantumsar.data import list_samples, load_sample  # noqa: E402
-from quantumsar.pipeline import SOLVERS, SegParams, benchmark, classiq_status, segment  # noqa: E402
+from quantumsar.data import list_samples, load_sample, to_uint8  # noqa: E402
+from quantumsar.pipeline import (  # noqa: E402
+    SOLVERS, SegParams, benchmark, classiq_status, load_cached_quantum, segment)
 
 DATA_DIR = Path(os.environ.get("QUANTUMSAR_DATA", ROOT / "data"))
 ALLOW_LIVE = os.environ.get("QUANTUMSAR_ALLOW_LIVE_CLASSIQ", "0") == "1"
@@ -134,7 +135,27 @@ def samples():
 @app.get("/samples/{name:path}")
 def sample(name: str):
     img, gt = _get_image(name, None)
-    return {"name": name, "image": img.tolist(), "labels": None if gt is None else gt.tolist()}
+    return {"name": name, "image": img.tolist(), "display": to_uint8(img).tolist(),
+            "labels": None if gt is None else gt.tolist()}
+
+
+@app.post("/cache-status")
+def cache_status(req: SegmentRequest):
+    """Is there a precomputed Classiq result for this image + parameters?"""
+    img, _ = _get_image(req.sample, req.image_b64)
+    prm = SegParams(**{**req.params.model_dump(), "solver": "classiq"})
+    hit = load_cached_quantum(img, prm)
+    return {"cached": hit is not None, "live_enabled": ALLOW_LIVE,
+            "meta": None if hit is None else {k: hit[1].get(k) for k in ("created", "classiq_version", "runtime_s")}}
+
+
+@app.get("/results/summary")
+def results_summary():
+    """Dataset-wide benchmark summary (results/benchmark_summary.csv), if present."""
+    import pandas as pd
+
+    p = ROOT / "results" / "benchmark_summary.csv"
+    return [] if not p.exists() else pd.read_csv(p).fillna("").to_dict(orient="records")
 
 
 @app.post("/segment")
@@ -144,6 +165,7 @@ def segment_ep(req: SegmentRequest):
         res = segment(img, _prm(req.params), gt, edges=req.edges, single_edges=req.single_edges)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    res["display"] = to_uint8(img)
     return _jsonable(res)
 
 
@@ -162,3 +184,13 @@ def benchmark_ep(req: BenchmarkRequest, format: str = Query("json", pattern="^(j
 
         return PlainTextResponse(pd.DataFrame(rows).to_csv(index=False), media_type="text/csv")
     return rows
+
+
+# ----------------------------------------------------------------------------- web UI
+# The React front-end (frontend/, built with `npm run build`) is served from "/".
+# API routes above take precedence over the static mount.
+_DIST = ROOT / "frontend" / "dist"
+if _DIST.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="ui")

@@ -177,6 +177,10 @@ def run_solver(img: np.ndarray, prm: SegParams, progress=None) -> dict:
                 "sa_tiled": "quantum-inspired simulated annealing (classical)",
                 "bruteforce_tiled": "exact tile enumeration (classical)"}[s]
     runtime = time.perf_counter() - t0
+    if "cached_meta" in info and info["cached_meta"].get("runtime_s"):
+        # report the wall time of the original Classiq run, not the cache lookup
+        info["served_from_cache_s"] = runtime
+        runtime = float(info["cached_meta"]["runtime_s"])
     if model is None:
         model = fit_model(img, prm)
     return {

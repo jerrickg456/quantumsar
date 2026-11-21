@@ -16,3 +16,6 @@ dist/
 # video build intermediates
 video/build/
 video/node_modules/
+# front-end
+frontend/node_modules/
+frontend/dist/

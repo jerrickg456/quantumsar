@@ -7,3 +7,5 @@ config.env
 video/build
 video/out
 notebooks/.ipynb_checkpoints
+frontend/node_modules
+frontend/dist

@@ -4,7 +4,7 @@ services:
     name: quantumsar
     runtime: docker
     plan: free
-    healthCheckPath: /_stcore/health
+    healthCheckPath: /health
     envVars:
       - key: QUANTUMSAR_ALLOW_LIVE_CLASSIQ
         value: "0"

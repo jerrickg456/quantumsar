@@ -1,25 +1,23 @@
-# One command: docker compose up --build   ->  UI http://localhost:7860, API http://localhost:8000/docs
+# One command: docker compose up --build   ->  http://localhost:7860  (UI)  ·  /docs (API)
 services:
-  api:
+  app:
     build: .
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
-    ports: ["8000:8000"]
+    ports: ["7860:7860"]
     env_file:
       - path: config.env          # optional, git-ignored (Classiq M2M credentials)
         required: false
     environment:
       QUANTUMSAR_ALLOW_LIVE_CLASSIQ: ${QUANTUMSAR_ALLOW_LIVE_CLASSIQ:-0}
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-fs", "http://localhost:7860/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-  ui:
+  # Optional classic Streamlit UI:  docker compose --profile streamlit up --build
+  streamlit:
+    profiles: ["streamlit"]
     build: .
-    command: streamlit run app/streamlit_app.py --server.port 7860 --server.address 0.0.0.0
-    ports: ["7860:7860"]
+    command: streamlit run app/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    ports: ["8501:8501"]
     environment:
-      QUANTUMSAR_API_URL: http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
+      QUANTUMSAR_API_URL: http://app:7860
