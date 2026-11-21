@@ -18,6 +18,10 @@ import base64
 import io
 import os
 import sys
+import threading
+import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -28,13 +32,19 @@ from pydantic import BaseModel, Field
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+# Classiq credentials must be in place BEFORE `classiq` is imported anywhere.
+from quantumsar.auth import setup_classiq_auth  # noqa: E402
+
+AUTH_SETUP = setup_classiq_auth()
+
 from quantumsar import __version__  # noqa: E402
 from quantumsar.data import list_samples, load_sample, to_uint8  # noqa: E402
 from quantumsar.pipeline import (  # noqa: E402
-    SOLVERS, SegParams, benchmark, classiq_status, load_cached_quantum, segment)
+    SOLVERS, SegParams, _classiq_live_ok, benchmark, classiq_status, load_cached_quantum, save_cached_quantum, segment)
 
 DATA_DIR = Path(os.environ.get("QUANTUMSAR_DATA", ROOT / "data"))
 ALLOW_LIVE = os.environ.get("QUANTUMSAR_ALLOW_LIVE_CLASSIQ", "0") == "1"
+MAX_QUEUE = int(os.environ.get("QUANTUMSAR_MAX_QUEUE", "4"))
 
 app = FastAPI(title="QuantumSAR API", version=__version__,
               description="MRF segmentation of SAR images with QAOA (Classiq) and classical baselines.")
@@ -129,10 +139,84 @@ def _jsonable(res: dict) -> dict:
     return out
 
 
+@app.on_event("startup")
+def _probe_classiq():
+    """Check the Classiq login in the background so /health can report it."""
+    if ALLOW_LIVE:
+        threading.Thread(target=_classiq_live_ok, daemon=True).start()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "version": __version__, "samples": len(list_samples(DATA_DIR)),
-            "live_classiq_enabled": ALLOW_LIVE, "classiq": classiq_status()}
+            "live_classiq_enabled": ALLOW_LIVE, "classiq": classiq_status(),
+            "auth": {k: AUTH_SETUP[k] for k in ("m2m", "deploy_credentials")},
+            "jobs_active": sum(j["status"] in ("queued", "running") for j in JOBS.values())}
+
+
+# ----------------------------------------------------------------------------- async jobs
+# Live Classiq runs take minutes, longer than typical proxy timeouts on free hosts.
+# POST /jobs queues a segmentation; GET /jobs/{id} reports progress and the result.
+# One worker => Classiq jobs run one at a time (protects the account's quota).
+JOBS: dict[str, dict] = {}
+_WORKER = ThreadPoolExecutor(max_workers=1)
+_LOCK = threading.Lock()
+
+
+def _public(job: dict, with_result: bool = True) -> dict:
+    out = {k: v for k, v in job.items() if k != "result" or with_result}
+    if job["status"] == "queued":
+        ahead = [j for j in JOBS.values() if j["status"] in ("queued", "running") and j["created"] < job["created"]]
+        out["queue_position"] = len(ahead)
+    if job.get("started"):
+        out["elapsed_s"] = round((job.get("finished") or time.time()) - job["started"], 1)
+    return out
+
+
+def _run_job(jid: str, img, gt, prm: SegParams, edges: bool, single: bool):
+    job = JOBS[jid]
+    job.update(status="running", started=time.time(), stage="fitting MRF model")
+
+    def progress(frac: float, msg: str):
+        job.update(progress=round(min(max(frac, 0.0), 0.99), 3), stage=msg)
+
+    try:
+        res = segment(img, prm, gt, edges=edges, single_edges=single, progress=progress)
+        res["display"] = to_uint8(img)
+        if "live" in res["mode"]:  # remember live Classiq runs: identical requests become instant
+            import classiq
+
+            meta = {"mode": res["mode"], "runtime_s": res["runtime_s"], "energy": res["energy"],
+                    "classiq_version": classiq.__version__, "tiling": res["info"],
+                    "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            save_cached_quantum(img, prm, res["labels"], meta)
+        job.update(status="done", progress=1.0, stage="done", finished=time.time(), result=_jsonable(res))
+    except Exception as e:  # noqa: BLE001
+        job.update(status="error", stage="failed", finished=time.time(), error=f"{type(e).__name__}: {e}"[:400])
+
+
+@app.post("/jobs", status_code=202)
+def create_job(req: SegmentRequest):
+    img, gt = _get_image(req.sample, req.image_b64)
+    prm = _prm(req.params)
+    with _LOCK:
+        now = time.time()
+        for k in [k for k, j in JOBS.items() if j.get("finished") and now - j["finished"] > 3600]:
+            JOBS.pop(k)  # forget results after an hour
+        if sum(j["status"] in ("queued", "running") for j in JOBS.values()) >= MAX_QUEUE:
+            raise HTTPException(429, "the Classiq queue is full, please try again in a few minutes")
+        jid = uuid.uuid4().hex[:12]
+        JOBS[jid] = {"id": jid, "status": "queued", "progress": 0.0, "stage": "queued", "created": now,
+                     "solver": prm.solver, "live": prm.allow_live_classiq}
+    _WORKER.submit(_run_job, jid, img, gt, prm, req.edges, req.single_edges)
+    return _public(JOBS[jid])
+
+
+@app.get("/jobs/{jid}")
+def get_job(jid: str):
+    if jid not in JOBS:
+        raise HTTPException(404, "unknown or expired job")
+    return _public(JOBS[jid])
 
 
 @app.get("/solvers")
@@ -191,7 +275,11 @@ def edges_ep(req: SegmentRequest):
 @app.post("/benchmark")
 def benchmark_ep(req: BenchmarkRequest, format: str = Query("json", pattern="^(json|csv)$")):
     img, gt = _get_image(req.sample, req.image_b64)
-    rows = benchmark(img, gt, _prm(req.params), req.solvers)
+    # never start minute-long live Classiq runs inside one benchmark request:
+    # the Classiq row uses a stored Classiq run, otherwise the labelled local fallback
+    prm = _prm(req.params)
+    prm.allow_live_classiq = False
+    rows = benchmark(img, gt, prm, req.solvers)
     if format == "csv":
         import pandas as pd
 

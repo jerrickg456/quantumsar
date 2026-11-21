@@ -7,4 +7,6 @@ services:
     healthCheckPath: /health
     envVars:
       - key: QUANTUMSAR_ALLOW_LIVE_CLASSIQ
-        value: "0"
+        value: "1"
+      - key: CLASSIQ_DEPLOY_CREDENTIALS   # secret from scripts/create_deploy_credentials.py
+        sync: false

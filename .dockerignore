@@ -9,3 +9,6 @@ video/out
 notebooks/.ipynb_checkpoints
 frontend/node_modules
 frontend/dist
+deploy/classiq_deploy.env
+deploy/.classiq_deploy_keyring.cfg
+**/.quantumsar_classiq_keyring.cfg

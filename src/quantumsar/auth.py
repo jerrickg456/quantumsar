@@ -78,10 +78,76 @@ def setup_classiq_auth(config_env: str | Path | None = None, windows_workaround:
     loaded = load_env_file(cfg if cfg.is_file() else None)
     if windows_workaround is None:
         windows_workaround = sys.platform.startswith("win")
-    if windows_workaround:
-        notes += _windows_workaround(cfg if cfg.is_file() else None)
     m2m = bool(os.environ.get("CLASSIQ_CLIENT_ID") and os.environ.get("CLASSIQ_CLIENT_SECRET"))
-    return {"env_keys": sorted(loaded), "m2m": m2m, "notes": notes}
+    deploy = bool(os.environ.get(DEPLOY_ENV)) and not m2m
+    if deploy:
+        notes += install_deploy_credentials()
+    elif windows_workaround:
+        notes += _windows_workaround(cfg if cfg.is_file() else None)
+    return {"env_keys": sorted(loaded), "m2m": m2m, "deploy_credentials": deploy, "notes": notes}
+
+
+# --------------------------------------------------------------------- deployment
+# Headless servers (Hugging Face Spaces, Render, Docker) cannot open a browser.
+# `scripts/create_deploy_credentials.py` performs ONE dedicated device login and
+# packs the resulting Classiq tokens into a single secret, CLASSIQ_DEPLOY_CREDENTIALS
+# (base64 JSON). At startup we seed the plaintext keyring that the Classiq SDK
+# reads (`classiqTokenService`), so `import classiq` finds the tokens and refreshes
+# them by itself. Tokens refreshed while the server runs are kept in that keyring
+# file; the env secret is only used when the file is empty (fresh container).
+
+DEPLOY_ENV = "CLASSIQ_DEPLOY_CREDENTIALS"
+_SERVICE = "classiqTokenService"
+_ACCESS_KEY = "classiqTokenAccount"
+_REFRESH_KEY = "classiqRefershTokenAccount"  # (sic) the SDK's own spelling
+
+
+def _keyring_path() -> Path:
+    base = os.environ.get("CLASSIQ_DIR") or os.environ.get("HOME") or os.environ.get("TMPDIR") or "/tmp"
+    return Path(base) / ".quantumsar_classiq_keyring.cfg"
+
+
+def _use_plaintext_keyring(path: Path):
+    import keyring
+    from keyrings.alt.file import PlaintextKeyring
+
+    kr = PlaintextKeyring()
+    kr.file_path = str(path)
+    keyring.set_keyring(kr)
+    return kr
+
+
+def encode_deploy_credentials(access_token: str | None, refresh_token: str) -> str:
+    import base64
+    import json
+
+    blob = json.dumps({"access": access_token, "refresh": refresh_token}).encode()
+    return base64.b64encode(blob).decode()
+
+
+def install_deploy_credentials() -> list[str]:
+    import base64
+    import json
+
+    raw = os.environ.get(DEPLOY_ENV, "").strip()
+    try:
+        creds = json.loads(base64.b64decode(raw))
+        refresh = creds["refresh"]
+    except Exception:  # noqa: BLE001
+        return [f"{DEPLOY_ENV} is set but could not be decoded"]
+    path = _keyring_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    kr = _use_plaintext_keyring(path)
+    if kr.get_password(_SERVICE, _REFRESH_KEY):
+        return [f"Classiq tokens already present in {path} (kept: they may be newer)"]
+    kr.set_password(_SERVICE, _REFRESH_KEY, refresh)
+    if creds.get("access"):
+        kr.set_password(_SERVICE, _ACCESS_KEY, creds["access"])
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return [f"Classiq deploy credentials installed into {path}"]
 
 
 def classiq_ready(timeout_s: float = 60.0) -> tuple[bool, str]:

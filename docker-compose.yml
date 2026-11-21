@@ -6,6 +6,8 @@ services:
     env_file:
       - path: config.env          # optional, git-ignored (Classiq M2M credentials)
         required: false
+      - path: deploy/classiq_deploy.env   # optional, git-ignored: live Classiq for this container
+        required: false
     environment:
       QUANTUMSAR_ALLOW_LIVE_CLASSIQ: ${QUANTUMSAR_ALLOW_LIVE_CLASSIQ:-0}
     healthcheck:

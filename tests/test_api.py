@@ -65,3 +65,38 @@ def test_large_upload_is_downscaled():
     assert r.status_code == 200, r.text
     h, w = np.array(r.json()["labels"]).shape
     assert max(h, w) <= 128 and (h, w) == (100, 66)
+
+
+def _wait(jid, timeout=120):
+    import time
+
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        j = client.get(f"/jobs/{jid}").json()
+        if j["status"] in ("done", "error"):
+            return j
+        time.sleep(0.2)
+    raise AssertionError("job did not finish")
+
+
+def test_async_job_roundtrip():
+    r = client.post("/jobs", json={"sample": "sar_000_normal", "edges": True,
+                                   "params": {"solver": "qaoa_local", **FAST}})
+    assert r.status_code == 202, r.text
+    j = _wait(r.json()["id"])
+    assert j["status"] == "done", j
+    assert j["progress"] == 1.0 and j["elapsed_s"] >= 0
+    assert np.array(j["result"]["labels"]).shape == (64, 64)
+    assert "edges" in j["result"]
+
+
+def test_job_queue_limit(monkeypatch):
+    import api.main as m
+
+    monkeypatch.setattr(m, "MAX_QUEUE", 0)
+    r = client.post("/jobs", json={"sample": "sar_000_normal", "params": {"solver": "otsu"}})
+    assert r.status_code == 429
+
+
+def test_unknown_job():
+    assert client.get("/jobs/nope").status_code == 404

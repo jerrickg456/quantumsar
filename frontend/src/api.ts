@@ -43,6 +43,23 @@ export type BenchRow = {
 
 export type ImageSource = { sample?: string; image_b64?: string }
 
+export type Health = {
+  live_classiq_enabled: boolean
+  classiq: { ok: boolean | null; msg: string }
+  jobs_active: number
+}
+
+export type Job = {
+  id: string
+  status: 'queued' | 'running' | 'done' | 'error'
+  progress: number
+  stage: string
+  queue_position?: number
+  elapsed_s?: number
+  error?: string
+  result?: SegResult
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
   if (!r.ok) throw new Error((await r.text()) || r.statusText)
@@ -52,7 +69,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 export const api = {
   samples: async (): Promise<string[]> => (await fetch('/samples')).json(),
   sample: async (name: string): Promise<Sample> => (await fetch(`/samples/${name}`)).json(),
-  health: async () => (await fetch('/health')).json(),
+  health: async (): Promise<Health> => (await fetch('/health')).json(),
+  createJob: (src: ImageSource, params: Params, edges: boolean, single_edges: boolean) =>
+    post<Job>('/jobs', { ...src, params, edges, single_edges }),
+  job: async (id: string): Promise<Job> => {
+    const r = await fetch(`/jobs/${id}`)
+    if (!r.ok) throw new Error(await r.text())
+    return r.json()
+  },
   segment: (src: ImageSource, params: Params, edges: boolean, single_edges: boolean) =>
     post<SegResult>('/segment', { ...src, params, edges, single_edges }),
   benchmark: (src: ImageSource, params: Params, solvers: string[]) =>

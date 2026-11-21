@@ -23,6 +23,7 @@ The Classiq simulator ``classiq/simulator`` supports up to 28 qubits.
 """
 
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -31,6 +32,45 @@ from .tile_solvers import StatevectorQAOA, TileResult, TileSolver, linear_ramp, 
 
 CLASSIQ_SIM_MAX_QUBITS = 28
 _PROGRAM_CACHE: dict = {}  # (n, edges, p) -> (quantum program, metrics); shared per process
+# Synthesized programs are also stored on disk (and shipped with the repo), so a
+# freshly deployed server can execute on Classiq without re-synthesizing.
+PROGRAM_DIR = Path(__file__).resolve().parents[3] / "results" / "classiq_programs"
+
+
+def _program_file(key) -> Path:
+    import hashlib
+
+    n, edges, p = key
+    tag = hashlib.sha1(repr(edges).encode()).hexdigest()[:10]
+    return PROGRAM_DIR / f"qaoa_n{n}_p{p}_{tag}.json"
+
+
+def _load_program(key):
+    f = _program_file(key)
+    if not f.is_file():
+        return None
+    try:
+        import json
+
+        from classiq import QuantumProgram
+
+        d = json.loads(f.read_text(encoding="utf-8"))
+        return QuantumProgram.model_validate_json(d["program"]), {**d["metrics"], "from_disk": True}
+    except Exception:  # noqa: BLE001 - SDK version mismatch etc.: just re-synthesize
+        return None
+
+
+def _save_program(key, qprog, metrics) -> None:
+    import json
+
+    try:
+        PROGRAM_DIR.mkdir(parents=True, exist_ok=True)
+        import classiq
+
+        _program_file(key).write_text(json.dumps({"classiq_version": classiq.__version__, "metrics": metrics,
+                                                  "program": qprog.model_dump_json()}), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _signature(q: TileQUBO) -> tuple:
@@ -118,6 +158,10 @@ class ClassiqQAOASolver(TileSolver):
         if key in _PROGRAM_CACHE:
             self._progs[sig] = _PROGRAM_CACHE[key]
         if sig not in self._progs:
+            loaded = _load_program(key)
+            if loaded is not None:
+                self._progs[sig] = _PROGRAM_CACHE[key] = loaded
+        if sig not in self._progs:
             from classiq import Constraints, synthesize
 
             n, edges = sig
@@ -130,6 +174,7 @@ class ClassiqQAOASolver(TileSolver):
             metrics.update({"qubits_logical": n, "edges": len(edges), "p": self.p,
                             "synthesis_seconds": round(time.perf_counter() - t0, 2)})
             self._progs[sig] = _PROGRAM_CACHE[key] = (qprog, metrics)
+            _save_program(key, qprog, metrics)
             if not self.circuit or n >= self.circuit.get("qubits_logical", 0):
                 self.circuit = metrics
         if not self.circuit or sig[0] >= self.circuit.get("qubits_logical", 0):

@@ -123,6 +123,8 @@ def run_solver(img: np.ndarray, prm: SegParams, progress=None) -> dict:
     if s not in SOLVERS:
         raise ValueError(f"unknown solver {s!r}; choose from {list(SOLVERS)}")
     kind = SOLVERS[s][1]
+    if progress:
+        progress(0.01, "fitting the MRF model")
     if kind != "pixel":
         model = fit_model(img, prm)
         t_fit = time.perf_counter() - t0
@@ -149,6 +151,8 @@ def run_solver(img: np.ndarray, prm: SegParams, progress=None) -> dict:
         elif prm.allow_live_classiq and _classiq_live_ok():
             from .solvers.classiq_qaoa import ClassiqQAOASolver
 
+            if progress:
+                progress(0.02, "loading / synthesizing QAOA circuits on Classiq")
             solver = ClassiqQAOASolver(p=prm.p, shots=prm.shots, maxiter=prm.maxiter, seed=prm.seed)
             # angles are pre-trained on a local statevector (<= 20 qubits)
             lab, info = _tiled(model, solver, prm, effective_tile(prm, LocalQAOASolver.max_qubits), progress)

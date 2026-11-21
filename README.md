@@ -121,9 +121,11 @@ python scripts/build_notebook.py                   # executes the notebook
 * **Render** (free web service): connect the repo; `render.yaml` is a ready blueprint.
 * **CI**: `.github/workflows/ci.yml` runs the test suite and a Docker build + `/health` smoke test.
 
-Live Classiq execution needs credentials that free hosts can't obtain interactively, so the deployed app
-serves precomputed Classiq results and falls back to the local QAOA simulator otherwise (clearly labelled).
-See [docs/deployment.md](docs/deployment.md).
+**Live Classiq in production:** run `python scripts/create_deploy_credentials.py` once (a dedicated
+Classiq login for the server), add the resulting `CLASSIQ_DEPLOY_CREDENTIALS` as a host *secret* and set
+`QUANTUMSAR_ALLOW_LIVE_CLASSIQ=1`. The deployed app then runs QAOA live on Classiq as background jobs with
+a progress bar (~2–4 min per image), stores each result, and serves stored Classiq runs instantly.
+See [docs/classiq_auth.md](docs/classiq_auth.md) and [docs/deployment.md](docs/deployment.md).
 
 ## Honest limitations
 

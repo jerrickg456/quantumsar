@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import StarBorder from './reactbits/StarBorder/StarBorder'
 import CountUp from './reactbits/CountUp/CountUp'
 import { Card, ModeBadge, Pill, PixelPanel, SectionTitle, Slider, Toggle } from './ui'
-import { api, fileToB64, type Grid, type ImageSource, type Params, type Sample, type SegResult } from '../api'
+import { api, fileToB64, type Grid, type Health, type ImageSource, type Job, type Params, type Sample, type SegResult } from '../api'
 import { fmt, groundTruthView, logicalCircuit, paint } from '../lib/viz'
 
 export const SOLVERS: { key: string; label: string; sub: string }[] = [
@@ -68,11 +68,19 @@ export default function Demo({ params, setParams, onResult }:
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [cache, setCache] = useState<boolean | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
+  const [job, setJob] = useState<Job | null>(null)
   const [showAll, setShowAll] = useState(false)
 
   const source: ImageSource = useMemo(() => (upload ? { image_b64: upload.b64 } : { sample: name }), [upload, name])
 
   useEffect(() => { api.samples().then((s) => setSamples(s)) }, [])
+  useEffect(() => {   // Classiq connection status (re-checked every 20 s)
+    const tick = () => api.health().then(setHealth).catch(() => {})
+    tick()
+    const t = setInterval(tick, 20000)
+    return () => clearInterval(t)
+  }, [])
   useEffect(() => {
     if (upload) return
     api.sample(name).then((s) => { setSample(s); setRes(null) })
@@ -86,11 +94,29 @@ export default function Demo({ params, setParams, onResult }:
   const set = (patch: Partial<Params>) => setParams({ ...params, ...patch })
   const circuit = logicalCircuit(params)
 
+  const liveOn = !!health?.live_classiq_enabled
+  const willRunLive = params.solver === 'classiq' && cache === false && liveOn
+
   async function run() {
     setBusy(true)
     setErr(null)
+    setJob(null)
     try {
-      setRes(await api.segment(source, params, edges, single))
+      if (willRunLive) {
+        // live Classiq run: background job + progress polling (takes minutes)
+        let j = await api.createJob(source, params, edges, single)
+        setJob(j)
+        while (j.status === 'queued' || j.status === 'running') {
+          await new Promise((r) => setTimeout(r, 1500))
+          j = await api.job(j.id)
+          setJob(j)
+        }
+        if (j.status === 'error') throw new Error(j.error)
+        setRes(j.result!)
+        setCache(true)
+      } else {
+        setRes(await api.segment(source, params, edges, single))
+      }
     } catch (e) {
       setErr(String(e))
     } finally {
@@ -170,8 +196,10 @@ export default function Demo({ params, setParams, onResult }:
           {params.solver === 'classiq' && (
             <div data-testid="cache-hint" className={`mt-4 rounded-xl border px-3 py-2 text-xs ${cache ? 'border-sky-400/40 bg-sky-500/10 text-sky-200' : 'border-orange-400/40 bg-orange-500/10 text-orange-200'}`}>
               {cache === null ? 'checking Classiq cache…' : cache
-                ? '✓ A precomputed Classiq result exists for these settings.'
-                : 'No cached Classiq run for these settings: the same QAOA circuit runs on the local simulator (labelled FALLBACK).'}
+                ? '✓ A Classiq result for this image and these settings is already stored: instant.'
+                : liveOn
+                  ? '⚛ Not run on Classiq yet: this will execute LIVE on the Classiq cloud simulator (about 2–4 minutes). Progress is shown below.'
+                  : 'No stored Classiq run for these settings and live Classiq is off on this server: the same QAOA circuit runs on the local simulator (labelled FALLBACK).'}
             </div>
           )}
 
@@ -181,7 +209,9 @@ export default function Demo({ params, setParams, onResult }:
               {busy ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-transparent" /> Solving…</> : '▶ Run segmentation'}
             </span>
           </StarBorder>
+          {job && job.status !== 'done' && <JobProgress job={job} />}
           {err && <div className="mt-3 rounded-lg bg-red-500/15 p-2 text-xs text-red-200">{err}</div>}
+          <ClassiqStatus health={health} />
         </Card>
 
         {/* ------------------------------------------------ results */}
@@ -261,6 +291,37 @@ export default function Demo({ params, setParams, onResult }:
         </div>
       </div>
     </section>
+  )
+}
+
+function JobProgress({ job }: { job: Job }) {
+  const pct = Math.round(job.progress * 100)
+  return (
+    <div data-testid="job-progress" className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+      <div className="flex justify-between font-semibold">
+        <span>{job.status === 'queued' ? `Queued for Classiq${job.queue_position ? ` (${job.queue_position} ahead)` : ''}` : 'Running live on Classiq'}</span>
+        <span className="font-mono">{pct}% · {job.elapsed_s ?? 0}s</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 transition-all duration-700" style={{ width: `${Math.max(pct, 3)}%` }} />
+      </div>
+      <div className="mt-2 truncate text-emerald-200/80">{job.stage}</div>
+    </div>
+  )
+}
+
+function ClassiqStatus({ health }: { health: Health | null }) {
+  if (!health) return null
+  const live = health.live_classiq_enabled
+  const ok = health.classiq?.ok
+  const [dot, text] = !live ? ['bg-slate-500', 'Live Classiq off on this server (stored Classiq runs only)']
+    : ok === true ? ['bg-emerald-400 animate-pulse', 'Classiq connected: live quantum runs enabled']
+    : ok === false ? ['bg-red-400', `Classiq login failed: ${health.classiq.msg}`]
+    : ['bg-amber-400 animate-pulse', 'Connecting to Classiq…']
+  return (
+    <div data-testid="classiq-status" className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />{text}
+    </div>
   )
 }
 

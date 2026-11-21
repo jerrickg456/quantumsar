@@ -164,13 +164,16 @@ def multires_solve(
         if f <= 1 or H % f or W % f:
             continue
         cm = coarsen(model, f)
-        clab, crep = tiled_solve(cm, solver, tile, sweeps, margin=None, icm_sweeps=icm_sweeps)
+        cprog = (lambda fr, msg: progress(0.35 * fr, f"coarse pass (x{f}): {msg}")) if progress else None
+        clab, crep = tiled_solve(cm, solver, tile, sweeps, margin=None, icm_sweeps=icm_sweeps, progress=cprog)
         up = np.repeat(np.repeat(clab, f, axis=0), f, axis=1)
         reports.append((f"x{f}", crep))
         if energy(model, up) < energy(model, init):
             init = up
+    off = 0.35 if reports else 0.0
+    fprog = (lambda fr, msg: progress(off + (1 - off) * fr, f"full-resolution pass: {msg}")) if progress else None
     lab, rep = tiled_solve(model, solver, tile, sweeps, init=init, margin=margin,
-                           icm_sweeps=icm_sweeps, progress=progress)
+                           icm_sweeps=icm_sweeps, progress=fprog)
     for _, crep in reports:  # merge coarse-level statistics
         rep.tiles_total += crep.tiles_total
         rep.tiles_solved += crep.tiles_solved

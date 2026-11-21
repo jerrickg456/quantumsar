@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TMP="$(mktemp -d)"
 git clone "https://huggingface.co/spaces/${HF_SPACE}" "$TMP/space"
-rsync -a --delete --exclude .git --exclude .venv --exclude video/build --exclude frontend/node_modules --exclude frontend/dist --exclude 'config.env' \
+rsync -a --delete --exclude .git --exclude .venv --exclude video/build --exclude frontend/node_modules --exclude frontend/dist --exclude 'config.env' --exclude 'classiq_deploy.env' --exclude '.classiq_deploy_keyring.cfg' \
       --exclude '*.mp4' "$ROOT/" "$TMP/space/"
 cp "$ROOT/deploy/huggingface/README.md" "$TMP/space/README.md"   # Space metadata front-matter
 cd "$TMP/space"
