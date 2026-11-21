@@ -23,83 +23,83 @@ And the classical methods that clean this up get slow, or stuck, as images
 grow.
 
 7
-00:00:24,072 --> 00:00:27,497
+00:00:24,056 --> 00:00:27,481
 QuantumSAR turns segmentation into an energy puzzle.
 
 8
-00:00:27,547 --> 00:00:31,611
+00:00:27,531 --> 00:00:31,595
 Each pixel gets a label, target or background, which we write as a tiny
 
 9
-00:00:31,611 --> 00:00:33,672
+00:00:31,595 --> 00:00:33,656
 magnet, a spin, pointing up or down.
 
 10
-00:00:33,722 --> 00:00:38,210
+00:00:33,706 --> 00:00:38,194
 Neighbouring spins like to agree, and bright pixels prefer to be target.
 
 11
-00:00:38,260 --> 00:00:42,957
+00:00:38,244 --> 00:00:42,941
 That is an Ising problem, exactly the kind of optimisation quantum computers
 
 12
-00:00:42,957 --> 00:00:43,822
+00:00:42,941 --> 00:00:43,806
 are built for.
 
 13
-00:00:43,872 --> 00:00:49,165
+00:00:43,856 --> 00:00:49,149
 We solve it with QAOA, the Quantum Approximate Optimisation Algorithm, running
 
 14
-00:00:49,165 --> 00:00:49,912
+00:00:49,149 --> 00:00:49,896
 on Classiq.
 
 15
-00:00:51,213 --> 00:00:52,076
+00:00:51,197 --> 00:00:52,060
 Let's try it.
 
 16
-00:00:52,125 --> 00:00:55,676
+00:00:52,110 --> 00:00:55,660
 I pick a noisy radar sample and choose the quantum solver.
 
 17
-00:00:55,726 --> 00:01:00,520
+00:00:55,710 --> 00:01:00,504
 A sixty-four by sixty-four image has four thousand pixels, far more than any
 
 18
-00:01:00,520 --> 00:01:05,063
+00:01:00,504 --> 00:01:05,047
 simulator has qubits, so the app cuts it into tiny three-by-three tiles.
 
 19
-00:01:05,113 --> 00:01:09,864
+00:01:05,097 --> 00:01:09,848
 Each tile becomes a nine-qubit circuit, and Classiq runs a whole batch of
 
 20
-00:01:09,864 --> 00:01:10,776
+00:01:09,848 --> 00:01:10,760
 tiles at once.
 
 21
-00:01:10,826 --> 00:01:15,317
+00:01:10,810 --> 00:01:15,301
 The badge always says where a result came from: this one was computed on
 
 22
-00:01:15,317 --> 00:01:17,750
+00:01:15,301 --> 00:01:17,735
 Classiq's cloud simulator, then cached.
 
 23
-00:01:17,800 --> 00:01:21,676
+00:01:17,785 --> 00:01:21,660
 Orange is the target, and it matches the ground truth closely.
 
 24
-00:01:21,726 --> 00:01:23,450
+00:01:21,710 --> 00:01:23,434
 Now switch on three classes.
 
 25
-00:01:23,500 --> 00:01:28,226
+00:01:23,484 --> 00:01:28,210
 Every pixel now uses three qubits, and the dark radar shadow behind the
 
 26
-00:01:28,226 --> 00:01:29,823
+00:01:28,210 --> 00:01:29,807
 vehicle appears in blue.
 
 27
@@ -115,65 +115,65 @@ Red traces the vehicle, cyan traces its shadow, ready for a target-recognition
 step.
 
 30
-00:01:43,556 --> 00:01:44,781
+00:01:43,337 --> 00:01:44,562
 So how does it compare?
 
 31
-00:01:44,831 --> 00:01:48,056
+00:01:44,612 --> 00:01:47,837
 One click benchmarks every solver on the same image.
 
 32
-00:01:48,106 --> 00:01:53,013
+00:01:47,887 --> 00:01:52,794
 Quantum QAOA lands within a fraction of a percent of the exact optimum found
 
 33
-00:01:53,013 --> 00:01:57,856
+00:01:52,794 --> 00:01:57,637
 by graph cut, and far ahead of Otsu and k-means thresholding, which speckle
 
 34
-00:01:57,856 --> 00:01:58,244
+00:01:57,637 --> 00:01:58,024
 fools.
 
 35
-00:01:58,294 --> 00:02:02,518
+00:01:58,074 --> 00:02:02,300
 To be fair, annealing and graph cut are still faster on a laptop.
 
 36
-00:02:02,568 --> 00:02:04,836
+00:02:02,350 --> 00:02:04,617
 And everything exports to CSV.
 
 37
-00:02:06,150 --> 00:02:07,825
+00:02:05,931 --> 00:02:07,606
 Now, the honest limits.
 
 38
-00:02:07,875 --> 00:02:12,903
+00:02:07,656 --> 00:02:12,684
 Qubit counts keep tiles small, so the quantum part optimises local blocks, not
 
 39
-00:02:12,903 --> 00:02:14,450
+00:02:12,684 --> 00:02:14,231
 the whole image at once.
 
 40
-00:02:14,500 --> 00:02:19,054
+00:02:14,281 --> 00:02:18,835
 Live cloud runs take a few minutes per image, which is why this demo serves
 
 41
-00:02:19,054 --> 00:02:20,450
+00:02:18,835 --> 00:02:20,231
 cached Classiq results.
 
 42
-00:02:20,500 --> 00:02:25,392
+00:02:20,281 --> 00:02:25,173
 Bigger devices mean bigger tiles, and next we want real MSTAR data and
 
 43
-00:02:25,392 --> 00:02:26,370
+00:02:25,173 --> 00:02:26,151
 hardware runs.
 
 44
-00:02:28,266 --> 00:02:32,854
+00:02:28,062 --> 00:02:32,650
 QuantumSAR is open source, tested, and runs with one Docker command.
 
 45
-00:02:32,904 --> 00:02:36,466
+00:02:32,700 --> 00:02:36,262
 Grab the code and try the live demo from the links on screen.

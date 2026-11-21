@@ -16,13 +16,14 @@ cd "$HERE"
 
 APP_PID=""
 if [ -z "${APP_URL:-}" ]; then
-  APP_URL="http://localhost:8501"
-  if ! curl -fs "$APP_URL/_stcore/health" >/dev/null 2>&1; then
-    echo "starting Streamlit app on :8501"
-    (cd "$ROOT" && QUANTUMSAR_ALLOW_LIVE_CLASSIQ=0 "$PY" -m streamlit run app/streamlit_app.py \
-        --server.port 8501 --server.headless true >"$HERE/build_app.log" 2>&1) &
+  APP_URL="http://localhost:8000"
+  if ! curl -fs "$APP_URL/health" >/dev/null 2>&1; then
+    echo "starting QuantumSAR (FastAPI + React UI) on :8000"
+    [ -f "$ROOT/frontend/dist/index.html" ] || (cd "$ROOT/frontend" && npm ci && npm run build)
+    (cd "$ROOT" && QUANTUMSAR_ALLOW_LIVE_CLASSIQ=0 "$PY" -m uvicorn api.main:app --port 8000 \
+        >"$HERE/build_app.log" 2>&1) &
     APP_PID=$!
-    for _ in $(seq 1 60); do curl -fs "$APP_URL/_stcore/health" >/dev/null 2>&1 && break; sleep 1; done
+    for _ in $(seq 1 60); do curl -fs "$APP_URL/health" >/dev/null 2>&1 && break; sleep 1; done
   fi
 fi
 trap '[ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null || true' EXIT

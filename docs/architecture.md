@@ -5,7 +5,8 @@
 ```mermaid
 flowchart LR
     subgraph Client
-        UI[Streamlit UI<br/>app/streamlit_app.py]
+        UI[React + React Bits UI<br/>frontend/ (served at /)]
+        ST[Streamlit UI, optional<br/>app/streamlit_app.py]
     end
     subgraph Backend
         API[FastAPI<br/>api/main.py<br/>/segment /edges /benchmark /health]
@@ -20,8 +21,8 @@ flowchart LR
     end
     CLASSIQ[(Classiq platform<br/>synthesis + classiq/simulator)]
 
-    UI -- in-process or HTTP --> API
-    UI --> PIPE
+    UI -- HTTP --> API
+    ST -- in-process or HTTP --> PIPE
     API --> PIPE
     PIPE --> MRF --> QUBO
     PIPE --> CL

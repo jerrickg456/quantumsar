@@ -70,7 +70,7 @@ def end_card(cfg) -> Path:
     centered(d, 450, "Code:  " + cfg["repo_url"], font(52, True), ORANGE)
     centered(d, 540, "Live demo:  " + cfg["demo_url"], font(52, True), BLUE)
     centered(d, 680, "Open source · tested · one-command Docker run", font(40), (170, 182, 205))
-    centered(d, 750, "Built with Classiq · FastAPI · Streamlit", font(36), (130, 142, 165))
+    centered(d, 750, "Built with Classiq · FastAPI · React (React Bits)", font(36), (130, 142, 165))
     p = BUILD / "end.png"
     img.save(p)
     return p
@@ -212,7 +212,7 @@ def main():
 
 
 def thumbnail(cfg, events, rec0):
-    t = next(e["t"] for e in events if e.get("name") == "demo_shadow") - rec0 + TITLE_S + 2.5
+    t = next(e["t"] for e in events if e.get("name") == "demo_three") - rec0 + TITLE_S + 3.5
     frame = BUILD / "thumb_src.png"
     subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-ss", f"{t:.2f}", "-i", str(OUT / "final.mp4"),
                     "-frames:v", "1", str(frame)], check=True)

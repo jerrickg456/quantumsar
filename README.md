@@ -9,7 +9,8 @@ ICM, simulated annealing and exact graph cut.
 
 * 2-class (target / background) and 3-class (target / shadow / background) segmentation
 * edge detection (2-pixel definition, single-pixel variant, target vs shadow edges)
-* FastAPI backend + Streamlit UI, Docker, CI, Hugging Face Spaces / Render deployment
+* FastAPI backend + React web UI built with [React Bits](https://reactbits.dev) animated components
+  (Aurora, SplitText, SpotlightCard, CountUp, StarBorder, …), Docker, CI, Hugging Face Spaces / Render deployment
 * every result states where it came from: live Classiq, cached Classiq run, or local fallback
 
 ## Contents
@@ -18,7 +19,8 @@ ICM, simulated annealing and exact graph cut.
 |---|---|
 | `src/quantumsar/` | model (`mrf.py`), QUBO/Ising (`qubo.py`), tiling (`tiling.py`), solvers (`solvers/`), Classiq auth helper (`auth.py`), pipeline |
 | `api/main.py` | REST API: `/segment`, `/edges`, `/benchmark`, `/health`, `/samples`, `/solvers` |
-| `app/streamlit_app.py` | web UI |
+| `frontend/` | React + TypeScript + Tailwind web UI (React Bits components in `src/components/reactbits/`), served by FastAPI at `/` |
+| `app/streamlit_app.py` | classic Streamlit UI (optional) |
 | `tests/` | 40+ tests incl. QUBO ≡ MRF, brute-force agreement on 3×3 / 4×4 tiles |
 | `notebooks/QuantumSAR_walkthrough.ipynb` | explanatory notebook (executed) |
 | `data/synthetic/` | 50 MSTAR-like samples + `scripts/generate_dataset.py`; put MSTAR chips in `data/mstar/` |
@@ -67,8 +69,9 @@ Python 3.11.
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 python -m pytest -q                                   # tests
-uvicorn api.main:app --port 8000 &                    # API  -> http://localhost:8000/docs
-streamlit run app/streamlit_app.py                    # UI   -> http://localhost:8501
+(cd frontend && npm ci && npm run build)              # React UI -> frontend/dist (Node 20+)
+uvicorn api.main:app --port 8000                      # UI http://localhost:8000 · API docs /docs
+# UI development with hot reload: (cd frontend && npm run dev) -> http://localhost:5173
 ```
 
 ### Windows (PowerShell)
@@ -77,23 +80,23 @@ streamlit run app/streamlit_app.py                    # UI   -> http://localhost
 py -3.11 -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 python -m pytest -q
-Start-Process -NoNewWindow python "-m uvicorn api.main:app --port 8000"
-streamlit run app/streamlit_app.py
+cd frontend; npm ci; npm run build; cd ..
+uvicorn api.main:app --port 8000          # open http://localhost:8000
 ```
 
 ### Docker (one command)
 
 ```bash
-docker compose up --build      # UI http://localhost:7860, API http://localhost:8000/docs
-# or a single container (API + UI):
-docker build -t quantumsar . && docker run -p 7860:7860 -p 8000:8000 quantumsar
+docker compose up --build      # http://localhost:7860 (UI) · http://localhost:7860/docs (API)
+# or: docker build -t quantumsar . && docker run -p 7860:7860 quantumsar
+# classic Streamlit UI as well: docker compose --profile streamlit up --build  (port 8501)
 ```
 
 ### Classiq (optional, for live quantum runs)
 
 ```bash
 python -c "from quantumsar.auth import setup_classiq_auth; setup_classiq_auth(); import classiq; classiq.authenticate()"
-QUANTUMSAR_ALLOW_LIVE_CLASSIQ=1 streamlit run app/streamlit_app.py
+QUANTUMSAR_ALLOW_LIVE_CLASSIQ=1 uvicorn api.main:app --port 8000
 python scripts/precompute_quantum.py --classes 2     # refresh the cached Classiq results
 ```
 

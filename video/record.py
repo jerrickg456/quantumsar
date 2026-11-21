@@ -21,7 +21,7 @@ BUILD = HERE / "build"
 W, H = 1920, 1080
 VW, VH = W, H
 DSF = 1.0
-UI_ZOOM = 1.35     # enlarge the app (CSS zoom on <body>) so text is readable in the video
+UI_ZOOM = 1.2     # enlarge the app (CSS zoom on <body>) so text is readable in the video
 GAP = 1.2          # silence between narration segments (s)
 LEAD = 0.25        # start an action slightly before its sentence
 
@@ -126,159 +126,148 @@ class Director:
 
     def scroll_top(self):
         self.page.evaluate("() => window.qsClear && window.qsClear()")
-        self.page.evaluate("""() => { const m = document.querySelector('[data-testid="stMain"]')
-            || document.querySelector('section.main'); (m || window).scrollTo({top: 0, behavior: 'smooth'}); }""")
+        self.page.evaluate("() => window.scrollTo({top: 0, behavior: 'smooth'})")
         self.page.wait_for_timeout(900)
 
 
 def build_plan(d: Director):
+    """Shot list for the React UI (all selectors are data-testid hooks in frontend/src)."""
     pg = d.page
-    run_btn = pg.get_by_test_id("stBaseButton-primary")
-    img_cols = pg.get_by_test_id("stHorizontalBlock").first
-    images = img_cols.get_by_test_id("stImage")
-    sidebar = pg.get_by_test_id("stSidebar")
+    T = pg.get_by_test_id
 
     def wait_result():
-        pg.get_by_text("Result produced by").wait_for(timeout=180_000)
+        T("mode-badge").wait_for(timeout=180_000)
+        pg.wait_for_timeout(500)
+
+    def run():
+        d.click(T("run-btn"))
+        wait_result()
+
+    def run_in_place(*toggles: str):
+        """Flip toggles and run without scrolling away from the result panels
+        (keeps the viewer's eye on the image that changes)."""
+        for t in toggles:
+            T(t).dispatch_event("click")
+        pg.wait_for_timeout(150)
+        T("run-btn").dispatch_event("click")
         pg.wait_for_timeout(400)
+        wait_result()
 
-    def select(label: str, text: str):
-        box = sidebar.get_by_test_id("stSelectbox").filter(has_text=label)
-        d.click(box)
-        pg.keyboard.type(text, delay=45)
-        pg.wait_for_timeout(300)
-        opt = pg.get_by_role("option", name=text).first
-        d.move_to(opt, steps=8)
-        opt.click()
-        pg.wait_for_timeout(600)
-
-    def toggle(text: str):
-        d.click(sidebar.get_by_text(text, exact=True))
-        pg.wait_for_timeout(700)
+    def show(testid: str, block: str = "center"):
+        d.scroll_to(T(testid), block=block)
 
     # ---------------- hook
     def hook_input():
-        d.highlight(images.nth(0), "Raw SAR image: speckle noise", 7.5, zoom=1.6)
+        show("panels")
+        d.highlight(T("panel-input"), "Raw SAR image: speckle noise", 7.0, zoom=1.6)
 
     def hook_slow():
-        d.highlight(sidebar.get_by_test_id("stSelectbox").filter(has_text="Solver"), None, 4.5)
+        d.highlight(T("solver-graphcut"), "classical solvers", 2.4)
+        pg.wait_for_timeout(300)
+        d.highlight(T("solver-icm"), None, 2.2)
 
     # ---------------- idea
     def idea_energy():
-        cap = pg.get_by_test_id("stMain").get_by_test_id("stCaptionContainer").first
-        d.highlight(cap, "MRF energy = Ising Hamiltonian", 9.5, zoom=1.45)
-
-    def explainer_item(text: str):
-        """Open the 'How it works' expander if needed, scroll the bullet into
-        view and let the layout settle before measuring it."""
-        exp = pg.get_by_test_id("stExpander").filter(has_text="How it works")
-        if not exp.get_by_text(text).is_visible():
-            d.scroll_to(exp)
-            d.click(exp.get_by_text("How it works & honest limitations"))
-            pg.wait_for_timeout(700)
-        li = exp.get_by_text(text).locator("xpath=ancestor::li[1]")
-        d.scroll_to(li)
+        d.scroll_top()
         pg.wait_for_timeout(300)
-        return li
+        d.highlight(T("hero-formula"), "MRF energy = Ising Hamiltonian", 11.0, zoom=1.5)
 
-    def idea_explainer():
-        d.highlight(explainer_item("Quantum encoding"), "1 pixel = 1 qubit", 5.0)
+    def idea_encoding():
+        show("how-encoding")
+        d.highlight(T("how-encoding"), "1 pixel = 1 qubit", 5.2, zoom=1.35)
 
     def idea_qaoa():
-        d.scroll_top()
-        d.highlight(sidebar.get_by_test_id("stSelectbox").filter(has_text="Solver"), "QAOA on Classiq", 4.5)
+        d.highlight(T("how-qaoa"), "QAOA on Classiq", 5.0, zoom=1.35)
 
     # ---------------- demo
     def demo_start():
-        d.scroll_top()
+        show("controls", block="start")
 
     def demo_pick():
-        select("Sample image", "sar_000_normal")
-        d.move_to(sidebar.get_by_test_id("stSelectbox").filter(has_text="Solver"))
-        d.highlight(sidebar.get_by_test_id("stSelectbox").filter(has_text="Solver"), None, 1.6)
+        d.click(T("thumb-sar_000_normal"))
+        pg.wait_for_timeout(500)
+        d.move_to(T("solver-classiq"))
+        d.highlight(T("solver-classiq"), "Quantum solver", 2.2)
 
     def demo_tiles():
-        d.highlight(sidebar.get_by_test_id("stSlider").filter(has_text="Tile size"), "3×3 tiles = 9 qubits", 6.0)
+        show("slider-tile")
+        d.highlight(T("slider-tile"), "3×3 tiles = 9 qubits", 6.0)
 
     def demo_run():
-        d.click(run_btn)
-        wait_result()
-        d.highlight(pg.get_by_text("Quantum circuit (per tile)").locator("xpath=ancestor::div[@data-testid='stVerticalBlock'][1]"),
-                    "Circuit per tile", 4.5)
+        run()
+        show("circuit-card")
+        d.highlight(T("circuit-card"), "Circuit per tile", 4.6)
 
     def demo_badge():
-        d.highlight(pg.locator(".mode-badge").first, None, 5.5, zoom=1.5)
+        show("panels")
+        d.highlight(T("mode-badge"), None, 5.5, zoom=1.5)
 
     def demo_compare():
-        d.highlight(images.nth(1), "Ground truth", 3.8)
+        d.highlight(T("panel-gt"), "Ground truth", 3.8)
         pg.wait_for_timeout(250)
-        d.highlight(images.nth(2), "QAOA result", 3.6)
+        d.highlight(T("panel-seg"), "QAOA result", 3.6)
 
     def demo_three():
-        toggle("3 classes (target / shadow / background)")
-        d.click(run_btn)
-        wait_result()
-
-    def demo_shadow():
-        d.highlight(images.nth(2), "Target + shadow", 5.0, zoom=1.6)
+        run_in_place("toggle-3class")
+        d.highlight(T("panel-seg"), "Target + shadow", 5.5, zoom=1.6)
 
     # ---------------- edges
     def edges_on():
-        toggle("Edge detection")
-        d.click(run_btn)
-        wait_result()
-        pg.wait_for_timeout(300)
-        d.highlight(images.nth(3), "Single-pixel edges", 4.5)
+        run_in_place("toggle-edges")
+        pg.wait_for_timeout(400)
+        d.highlight(T("panel-edges"), "Single-pixel edges", 4.0)
 
     def edges_zoom():
-        d.highlight(images.nth(3), None, 4.6, zoom=1.7)
+        d.highlight(T("panel-edges"), None, 4.6, zoom=1.7)
         pg.wait_for_timeout(4900)
-        toggle("3 classes (target / shadow / background)")   # back to 2 classes for the benchmark
-        d.scroll_to(pg.get_by_role("button", name="⚡ Benchmark all solvers"), block="start")
+        d.click(T("toggle-3class"))           # back to 2 classes for the benchmark
+        show("bench-btn", block="start")
 
     # ---------------- benchmark
     def bench_click():
-        d.click(pg.get_by_role("button", name="⚡ Benchmark all solvers"))
-        pg.get_by_text("Export CSV").wait_for(timeout=180_000)
-        pg.wait_for_timeout(500)
-        d.scroll_to(pg.get_by_role("button", name="⚡ Benchmark all solvers"), block="start")
+        d.click(T("bench-btn"))
+        T("bench-table").wait_for(timeout=180_000)
+        pg.wait_for_timeout(400)
+        show("bench-table", block="start")
 
     def bench_table():
-        tbl = pg.get_by_test_id("stTable").last
-        d.highlight(tbl, "QAOA ≈ exact graph-cut energy", 6.5, zoom=1.3)
-        pg.wait_for_timeout(6800)
-        d.highlight(pg.get_by_test_id("stVegaLiteChart").first, "Accuracy (IoU)", 3.0)
+        d.highlight(T("row-classiq"), "QAOA on Classiq", 4.2)
+        pg.wait_for_timeout(300)
+        d.highlight(T("row-graphcut"), "exact optimum: same energy", 4.0)
+        pg.wait_for_timeout(4300)
+        show("chart-energy")
+        d.highlight(T("chart-iou"), "Accuracy (IoU)", 2.6)
 
     def bench_runtime():
-        d.highlight(pg.get_by_test_id("stVegaLiteChart").nth(1), "Runtime: classical still faster", 4.2)
+        d.highlight(T("chart-runtime"), "Runtime: classical still faster", 4.2, zoom=1.3)
 
     def bench_csv():
-        btn = pg.get_by_test_id("stDownloadButton")
-        d.move_to(btn)
-        d.highlight(btn, None, 2.2)
+        show("export-csv")
+        d.move_to(T("export-csv"))
+        d.highlight(T("export-csv"), None, 2.2)
 
     # ---------------- limits
     def lim_intro():
-        d.scroll_top()
-        d.click(run_btn)          # re-run 2-class view so the badge matches what is said next
-        wait_result()
+        show("controls", block="start")
+        run()                                  # 2-class cached Classiq view
 
     def lim_tiles():
-        d.scroll_to(pg.get_by_text("Quantum circuit (per tile)"), block="start")
-        d.highlight(pg.get_by_test_id("stTable").nth(2), "qubits / tile", 6.0)
+        show("tiles-card")
+        d.highlight(T("tiles-card"), "qubits / tile", 6.0)
 
     def lim_cached():
-        d.scroll_top()
-        d.highlight(pg.locator(".mode-badge").first, "Cached Classiq run", 5.5)
+        show("panels")
+        d.highlight(T("mode-badge"), "Cached Classiq run", 5.5)
 
     def lim_future():
-        d.highlight(explainer_item("Limits."), "Honest limitations", 5.5)
+        show("how-limits")
+        d.highlight(T("how-limits"), "Honest limitations", 5.5, zoom=1.25)
 
     return [
         ("hook", [(1, hook_input), (2, hook_slow)]),
-        ("idea", [(0, idea_energy), (3, idea_explainer), (4, idea_qaoa)]),
+        ("idea", [(0, idea_energy), (3, idea_encoding), (4, idea_qaoa)]),
         ("demo", [(0, demo_start), (1, demo_pick), (2, demo_tiles), (3, demo_run), (4, demo_badge),
-                  (5, demo_compare), (6, demo_three), (7, demo_shadow)]),
+                  (5, demo_compare), (6, demo_three)]),
         ("edges", [(0, edges_on), (1, edges_zoom)]),
         ("benchmark", [(0, bench_click), (2, bench_table), (3, bench_runtime), (4, bench_csv)]),
         ("limits", [(0, lim_intro), (1, lim_tiles), (2, lim_cached), (3, lim_future)]),
@@ -290,15 +279,14 @@ def warm_up(browser, url: str):
     ctx = browser.new_context(viewport={"width": W, "height": H})
     pg = ctx.new_page()
     pg.goto(url, wait_until="networkidle")
-    pg.get_by_test_id("stBaseButton-primary").wait_for(timeout=120_000)
-    pg.get_by_test_id("stBaseButton-primary").click()
-    pg.get_by_text("Result produced by").wait_for(timeout=180_000)
+    pg.get_by_test_id("run-btn").click()
+    pg.get_by_test_id("mode-badge").wait_for(timeout=180_000)
     ctx.close()
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://localhost:8501")
+    ap.add_argument("--url", default="http://localhost:8000")
     ap.add_argument("--headed", action="store_true")
     a = ap.parse_args()
     timings = {t["id"]: t for t in json.loads((BUILD / "timings.json").read_text(encoding="utf-8"))}
@@ -312,8 +300,8 @@ def main():
         page = ctx.new_page()
         d = Director(page, timings)           # video clock starts with the page
         page.goto(a.url, wait_until="networkidle")
-        page.get_by_test_id("stBaseButton-primary").wait_for(timeout=120_000)
-        page.wait_for_timeout(1500)
+        page.get_by_test_id("run-btn").wait_for(timeout=120_000)
+        page.wait_for_timeout(2500)          # let the hero intro animations play
         d.ensure_overlay()
         page.mouse.move(W * 0.6, H * 0.45)
         d.log("ready")
