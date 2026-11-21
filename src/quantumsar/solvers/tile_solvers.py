@@ -54,7 +54,7 @@ class AnnealingTileSolver(TileSolver):
     label = "Simulated annealing (QUBO, quantum-inspired)"
     provenance = "quantum-inspired (classical)"
 
-    def __init__(self, sweeps: int = 200, restarts: int = 4, seed: int = 0):
+    def __init__(self, sweeps: int = 100, restarts: int = 3, seed: int = 0):
         self.sweeps, self.restarts = sweeps, restarts
         self.rng = np.random.default_rng(seed)
 
