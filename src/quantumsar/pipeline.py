@@ -157,13 +157,18 @@ def run_solver(img: np.ndarray, prm: SegParams, progress=None) -> dict:
         else:
             # Fallback: same QAOA circuit on the local statevector simulator when
             # it fits, otherwise simulated annealing on the same QUBOs.
+            # State *why* Classiq was not used, so the UI label is accurate.
+            if not prm.allow_live_classiq:
+                why = "no cached Classiq run for this image/settings; live Classiq is off"
+            else:
+                why = "Classiq login/connection failed: " + classiq_status().get("msg", "")[:80]
             if os.environ.get("QUANTUMSAR_FALLBACK", "qaoa_local") == "qaoa_local":
                 solver = LocalQAOASolver(p=prm.p, shots=prm.shots, maxiter=prm.maxiter, seed=prm.seed)
                 tile = effective_tile(prm, LocalQAOASolver.max_qubits)
-                mode = "FALLBACK: same QAOA circuit on local statevector simulator (Classiq not available)"
+                mode = f"FALLBACK: same QAOA circuit on local simulator ({why})"
             else:
                 solver, tile = AnnealingTileSolver(seed=prm.seed), prm.tile
-                mode = "FALLBACK: simulated annealing on the tile QUBOs (Classiq not available)"
+                mode = f"FALLBACK: simulated annealing on the tile QUBOs ({why})"
             lab, info = _tiled(model, solver, prm, tile, progress)
     else:
         solver = {
