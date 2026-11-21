@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import StarBorder from './reactbits/StarBorder/StarBorder'
 import CountUp from './reactbits/CountUp/CountUp'
 import { Card, ModeBadge, Pill, PixelPanel, SectionTitle, Slider, Toggle } from './ui'
-import { api, fileToB64, type ImageSource, type Params, type Sample, type SegResult } from '../api'
+import { api, fileToB64, type Grid, type ImageSource, type Params, type Sample, type SegResult } from '../api'
 import { fmt, groundTruthView, logicalCircuit, paint } from '../lib/viz'
 
 export const SOLVERS: { key: string; label: string; sub: string }[] = [
@@ -15,6 +15,23 @@ export const SOLVERS: { key: string; label: string; sub: string }[] = [
   { key: 'otsu', label: 'Otsu', sub: 'threshold' },
   { key: 'kmeans', label: 'k-means', sub: 'clustering' },
 ]
+
+/** Client-side grayscale preview of an uploaded PNG/JPG (same downscaling rule as the API). */
+async function previewGrid(file: File): Promise<Grid | null> {
+  if (file.name.toLowerCase().endsWith('.npy')) return null
+  const bmp = await createImageBitmap(file)
+  const f = Math.max(1, Math.ceil(Math.max(bmp.width, bmp.height) / 128))
+  const w = Math.floor(bmp.width / f), h = Math.floor(bmp.height / f)
+  const c = document.createElement('canvas')
+  c.width = w; c.height = h
+  const ctx = c.getContext('2d')!
+  ctx.drawImage(bmp, 0, 0, w, h)
+  const d = ctx.getImageData(0, 0, w, h).data
+  return Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
+    const o = (y * w + x) * 4
+    return Math.round(0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2])
+  }))
+}
 
 export type DemoState = {
   source: ImageSource
@@ -44,7 +61,7 @@ export default function Demo({ params, setParams, onResult }:
   const [samples, setSamples] = useState<string[]>([])
   const [name, setName] = useState('sar_002_low_snr')
   const [sample, setSample] = useState<Sample | null>(null)
-  const [upload, setUpload] = useState<{ b64: string; name: string } | null>(null)
+  const [upload, setUpload] = useState<{ b64: string; name: string; preview: Grid | null } | null>(null)
   const [edges, setEdges] = useState(false)
   const [single, setSingle] = useState(true)
   const [res, setRes] = useState<SegResult | null>(null)
@@ -82,8 +99,8 @@ export default function Demo({ params, setParams, onResult }:
   }
 
   const visible = showAll ? samples : samples.slice(0, 10)
-  const gt = sample?.labels ? groundTruthView(sample.labels, params.n_classes) : null
-  const display = res?.display ?? sample?.display ?? null
+  const gt = !upload && sample?.labels ? groundTruthView(sample.labels, params.n_classes) : null
+  const display = res?.display ?? (upload ? upload.preview : sample?.display) ?? null
   const info = res?.info ?? {}
   const synth = info.circuit && info.circuit.depth ? info.circuit : info.cached_meta?.tiling?.circuit
 
@@ -109,11 +126,16 @@ export default function Demo({ params, setParams, onResult }:
               Upload…
               <input type="file" accept=".png,.jpg,.jpeg,.npy" className="hidden" onChange={async (e) => {
                 const f = e.target.files?.[0]
-                if (f) { setUpload({ b64: await fileToB64(f), name: f.name }); setRes(null) }
+                if (f) { setUpload({ b64: await fileToB64(f), name: f.name, preview: await previewGrid(f) }); setRes(null) }
+                e.target.value = ''
               }} />
             </label>
           </div>
-          <div data-testid="sample-name" className="mt-2 truncate font-mono text-xs text-amber-300">{upload ? upload.name : name}</div>
+          <div data-testid="sample-name" className="mt-2 truncate font-mono text-xs text-amber-300">{upload ? `uploaded: ${upload.name}` : name}</div>
+          <div className="mt-1 text-[11px] leading-snug text-slate-500">
+            Upload a grayscale image (PNG / JPG / .npy). Large images are block-averaged down to ≤128 px.
+            Uploads have no ground truth, so accuracy / IoU are not shown.
+          </div>
 
           <div className="mt-5 text-xs font-semibold uppercase tracking-widest text-slate-400">Solver</div>
           <div className="mt-3 grid grid-cols-2 gap-2">

@@ -78,11 +78,24 @@ def _decode_image(b64: str) -> np.ndarray:
         from PIL import Image
 
         img = np.asarray(Image.open(io.BytesIO(raw)).convert("F"), dtype=np.float32)
+    if img.ndim == 3:                      # e.g. an RGB .npy -> grayscale
+        img = img.mean(axis=2)
     if img.ndim != 2:
-        raise HTTPException(400, "image must be 2-D grayscale")
-    if max(img.shape) > 128:
-        raise HTTPException(400, "image too large (max 128x128; the use case uses 64x64)")
-    return np.maximum(img.astype(np.float32), 1e-3)
+        raise HTTPException(400, "image must be a 2-D grayscale array or an image file")
+    return np.maximum(_fit_size(img.astype(np.float32)), 1e-3)
+
+
+MAX_SIDE = 128
+
+
+def _fit_size(img: np.ndarray) -> np.ndarray:
+    """Shrink large uploads by integer block-averaging (a multi-look average, which
+    keeps SAR speckle statistics sensible) so the longest side is <= MAX_SIDE."""
+    f = int(np.ceil(max(img.shape) / MAX_SIDE))
+    if f > 1:
+        h, w = (img.shape[0] // f) * f, (img.shape[1] // f) * f
+        img = img[:h, :w].reshape(h // f, f, w // f, f).mean(axis=(1, 3))
+    return img
 
 
 def _get_image(sample: str | None, b64: str | None):

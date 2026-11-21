@@ -68,7 +68,7 @@ export function PixelPanel({ title, data, kind, base, testid, placeholder, accen
       </div>
       <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-[#111a2e] shadow-inner">
         {data ? (
-          <canvas ref={ref} className="h-full w-full transition duration-500 group-hover:scale-[1.03]"
+          <canvas ref={ref} className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.03]"
             style={{ imageRendering: 'pixelated' }} />
         ) : (
           <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">{placeholder}</div>

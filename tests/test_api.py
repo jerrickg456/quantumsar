@@ -54,3 +54,14 @@ def test_benchmark_csv():
 def test_bad_solver():
     r = client.post("/segment", json={"sample": "sar_000_normal", "params": {"solver": "nope"}})
     assert r.status_code == 400
+
+
+def test_large_upload_is_downscaled():
+    img = np.random.default_rng(1).gamma(3, 1 / 3, (300, 200)).astype(np.float32)
+    buf = io.BytesIO()
+    np.save(buf, img)
+    r = client.post("/segment", json={"image_b64": base64.b64encode(buf.getvalue()).decode(),
+                                       "params": {"solver": "graphcut"}})
+    assert r.status_code == 200, r.text
+    h, w = np.array(r.json()["labels"]).shape
+    assert max(h, w) <= 128 and (h, w) == (100, 66)
